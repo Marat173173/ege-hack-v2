@@ -1,0 +1,337 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   ЕГЭ-ХАК · дизайн-токены и сигнатурные приёмы
+   Все цвета — RGB-тройки в CSS-переменных, чтобы Tailwind мог
+   делать <alpha-value> и чтобы темы переключались одним атрибутом.
+   ============================================================ */
+:root {
+  /* акценты (перебиваются предметом) */
+  --accent: 242 179 68; /* #F2B344 — Русский (янтарь) */
+  --accent-2: 232 132 59; /* #E8843B */
+  --glow: 0.85;
+
+  /* алиасы шрифтов для styled-jsx и inline-стилей (var(--mono/--serif/--sans)).
+     Реальные семейства приходят из next/font: --font-sans/-display/-mono. */
+  --sans: var(--font-sans), ui-monospace, "SF Mono", Menlo, monospace;
+  --serif: var(--font-display), ui-serif, Georgia, serif;
+  --mono: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --hand: var(--font-hand), "Segoe Script", "Bradley Hand", cursive;
+}
+
+/* ——— ТЁМНАЯ ТЕМА (по умолчанию / командный центр) ——— */
+:root,
+[data-theme="dark"] {
+  --bg-0: 7 10 20; /* #070A14 */
+  --bg-1: 11 17 32; /* #0B1120 */
+  --bg-2: 14 22 38; /* #0E1626 */
+  --hi: 234 240 252; /* #EAF0FC */
+  --mid: 159 176 207; /* #9FB0CF */
+  --lo: 100 117 151; /* #647597 */
+  --line: 132 156 200; /* alpha задаётся отдельно */
+  --line-a: 0.16;
+  --line-2a: 0.28;
+
+  /* стекло */
+  --glass-tint: 13 20 34;
+  --glass-tint-a: 0.55;
+  --glass-hi: 255 255 255; /* верхний блик */
+  --glass-hi-a: 0.22;
+  --glass-border-a: 0.12;
+  /* «свечение» темы для кнопки/теней: в тёмной — светлое */
+  --theme-glow: 234 240 252; /* светлый */
+  --scrim: 4 6 12;
+  /* обводка букв (для читаемости на цветных пузырях): в тёмной теме — светлая */
+  --ink-stroke: 240 244 252;
+}
+
+/* ——— СВЕТЛАЯ ТЕМА (приглушённая сине-стальная, не выбеленная) ——— */
+[data-theme="light"] {
+  --bg-0: 204 214 230; /* мягкий сине-стальной фон */
+  --bg-1: 214 222 236;
+  --bg-2: 224 230 242;
+  --hi: 22 30 48; /* тёмный текст */
+  --mid: 60 76 106;
+  --lo: 92 108 140; /* темнее для читаемости мелких eyebrow-меток (AA) */
+  --line: 50 68 102;
+  --line-a: 0.2;
+  --line-2a: 0.32;
+
+  --glass-tint: 255 255 255;
+  --glass-tint-a: 0.62;
+  --glass-hi: 255 255 255;
+  --glass-hi-a: 0.55;
+  --glass-border-a: 0.5;
+  /* в светлой теме «свечение» — тёмное */
+  --theme-glow: 22 30 48;
+  --scrim: 120 134 160;
+  /* в светлой теме обводка букв — тёмная */
+  --ink-stroke: 18 24 40;
+}
+
+/* предмет: математика — холодные акценты (в обеих темах) */
+[data-subject="math"] {
+  --accent: 63 200 255; /* #3FC8FF — циан */
+  --accent-2: 110 139 255; /* #6E8BFF */
+}
+
+/* родительский режим — спокойнее, меньше свечения */
+[data-mode="parent"] {
+  --glow: 0.35;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: rgb(var(--bg-0));
+  color: rgb(var(--hi));
+  -webkit-font-smoothing: antialiased;
+  /* обычный текст — Iosevka Charon */
+  font-family: var(--font-sans), ui-monospace, "SF Mono", Menlo, monospace;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+/* ——— Логика типографики ———
+   Болды и выделения — Alfa Slab One (display).
+   Шрифт декоративный и плотный, поэтому даём чуть меньший трекинг и кегль. */
+b,
+strong,
+.font-bold,
+.font-extrabold,
+.font-semibold {
+  font-family: var(--font-display), ui-serif, Georgia, serif;
+  font-weight: 400; /* у Alfa Slab один начертание */
+  letter-spacing: -0.01em;
+}
+
+/* HUD/моно-лейблы и акценты — Bitcount Grid Double */
+.hud-label,
+.font-mono {
+  font-family: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/* Тёплые «от руки» акценты — Caveat (рукописный). Чуть крупнее, т.к. рукописный
+   оптически мельче обычного текста. */
+.font-hand {
+  font-family: var(--font-hand), "Segoe Script", cursive;
+  letter-spacing: 0.01em;
+}
+
+/* Читаемость текста на цветных пузырях/фонах: обводка букв по теме
+   (в тёмной — светлая, в светлой — тёмная). paint-order рисует штрих ПОД
+   заливкой, чтобы не «съедать» глифы; тень — фолбэк для надёжности. */
+.ink-readable {
+  -webkit-text-stroke: 0.6px rgb(var(--ink-stroke) / 0.55);
+  paint-order: stroke fill;
+  text-shadow:
+    0 0 1px rgb(var(--ink-stroke) / 0.4),
+    0 1px 2px rgb(var(--ink-stroke) / 0.25);
+}
+
+/* ——— Tahoe-glass заголовок (1:1 с лендинг-прототипом) ——— */
+.glass-text {
+  color: transparent;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 1) 0%,
+    rgba(255, 255, 255, 0.4) 25%,
+    rgba(255, 255, 255, 0.1) 45%,
+    rgba(255, 255, 255, 0.9) 55%,
+    rgba(255, 255, 255, 0.2) 75%,
+    rgba(255, 255, 255, 1) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.3);
+  filter: drop-shadow(0 15px 35px rgba(0, 0, 0, 0.4))
+    drop-shadow(0 5px 10px rgba(0, 0, 0, 0.2));
+  animation: shimmer 8s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: 0% center;
+  }
+}
+
+/* ============================================================
+   LIQUID GLASS — фирменное «жидкое стекло» HUD-панелей.
+   Реальный backdrop-filter + спекулярные блики + тонкий
+   преломляющий слой. Используется поверх 3D-Шпиля.
+   ============================================================ */
+.liquid-glass {
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(
+      135deg,
+      rgb(var(--glass-hi) / calc(var(--glass-hi-a) * 0.45)) 0%,
+      rgb(var(--glass-hi) / 0.02) 38%,
+      rgb(var(--glass-hi) / calc(var(--glass-hi-a) * 0.27)) 100%
+    ),
+    rgb(var(--glass-tint) / var(--glass-tint-a));
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgb(var(--glass-hi) / var(--glass-border-a));
+  box-shadow:
+    inset 0 1px 0 0 rgb(var(--glass-hi) / var(--glass-hi-a)),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.35),
+    inset 0 0 22px -6px rgb(var(--glass-hi) / 0.10),
+    0 24px 60px -28px rgba(0, 0, 0, 0.55);
+  transition: background-color 0.4s ease, border-color 0.4s ease;
+}
+
+/* верхний специальный блик-«линза» */
+.liquid-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(
+    120% 80% at 18% 0%,
+    rgb(var(--glass-hi) / var(--glass-hi-a)),
+    transparent 55%
+  );
+  opacity: 0.9;
+}
+
+/* тёплое/холодное преломление под цвет предмета */
+.liquid-glass::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+  background: linear-gradient(
+    120deg,
+    transparent 30%,
+    rgb(var(--accent) / 0.14) 50%,
+    transparent 70%
+  );
+  mix-blend-mode: screen;
+  opacity: 0.7;
+}
+
+/* движущийся «sheen» — блик, ползущий по стеклу */
+.liquid-glass-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: -1;
+}
+.liquid-glass-sheen::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: 0;
+  width: 40%;
+  height: 200%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.16),
+    transparent
+  );
+  animation: sheen-move 4.5s ease-in-out infinite;
+}
+@keyframes sheen-move {
+  0% {
+    transform: translateX(-160%) skewX(-18deg);
+  }
+  60%,
+  100% {
+    transform: translateX(320%) skewX(-18deg);
+  }
+}
+
+/* глянцевые кнопки (из PixelHero) */
+.glossy-btn {
+  position: relative;
+  background: linear-gradient(
+    180deg,
+    rgb(var(--accent)),
+    rgb(var(--accent-2))
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.25),
+    0 8px 22px -10px rgb(var(--accent) / 0.7);
+  color: #0a0e18;
+}
+.glossy-btn::after {
+  content: "";
+  position: absolute;
+  inset: 1px 1px 50% 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.35),
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* HUD-лейблы */
+.hud-label {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+/* состояния этажа — чипы */
+.state-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 8px;
+  border: 1px solid rgba(132, 156, 200, 0.18);
+}
+.state-chip i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+/* тонкий скроллбар внутри стекла */
+.thin-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: rgba(132, 156, 200, 0.3);
+  border-radius: 3px;
+}
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(132, 156, 200, 0.3) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.08s !important;
+  }
+}

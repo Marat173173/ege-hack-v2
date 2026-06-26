@@ -1,0 +1,33 @@
+# зависимости
+/node_modules
+/.pnp
+.pnp.js
+
+# сборка Next.js
+/.next/
+/out/
+/build
+next-env.d.ts
+
+# окружение и секреты
+.env
+.env*.local
+
+# логи
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# системное
+.DS_Store
+*.pem
+.vercel
+/coverage
+
+# кэш TypeScript
+*.tsbuildinfo
+
+# Переменные окружения
+.env
+.env.local
+.env.production.local
