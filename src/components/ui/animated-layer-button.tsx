@@ -28,6 +28,8 @@ const AnimatedLayerButton = React.forwardRef<
         // «выдавленная» жёсткая тень + мягкое свечение цветом, противоположным фону
         "[box-shadow:7px_7px_0px_rgb(var(--theme-glow)/0.9),0_0_28px_-6px_rgb(var(--theme-glow)/0.45)]",
         "hover:translate-y-[5px] hover:[box-shadow:3px_3px_0px_rgb(var(--theme-glow)/0.9),0_0_18px_-4px_rgb(var(--theme-glow)/0.4)]",
+        // на тач hover нет — тот же «вдавленный» отклик на нажатие
+        "active:translate-y-[5px] active:[box-shadow:3px_3px_0px_rgb(var(--theme-glow)/0.9),0_0_18px_-4px_rgb(var(--theme-glow)/0.4)]",
         // доступность
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg-0",
         "disabled:pointer-events-none disabled:opacity-50",

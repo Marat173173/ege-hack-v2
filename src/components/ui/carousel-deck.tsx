@@ -437,11 +437,12 @@ export const CarouselDeck = ({
           cursor: pointer;
           transition: background 0.2s, transform 0.2s;
         }
-        /* невидимая увеличенная зона тапа (точки 7px слишком мелкие для пальца) */
+        /* невидимая увеличенная зона тапа (точки 7px слишком мелкие для пальца).
+           inset -8px при gap 10px → перекрытие соседних зон малое, попадание чёткое */
         .deck-dot::before {
           content: "";
           position: absolute;
-          inset: -11px;
+          inset: -8px;
           border-radius: 50%;
         }
         .deck-dot.on {
