@@ -18,7 +18,8 @@ export function Toggle({
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
-      className="relative h-[26px] w-[46px] shrink-0 rounded-full border transition-colors"
+      /* before: невидимая зона ±9px по вертикали → тач-таргет ≥44px без изменения вида */
+      className="relative h-[26px] w-[46px] shrink-0 rounded-full border transition-colors before:absolute before:-inset-x-1 before:-inset-y-[9px] before:content-['']"
       style={{
         background: checked ? "rgb(var(--accent))" : "rgb(var(--glass-hi) / 0.08)",
         borderColor: checked ? "rgb(var(--accent))" : "rgb(var(--line) / 0.4)",

@@ -11,8 +11,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // ВАЖНО: пинч-зум НЕ блокируем (a11y / WCAG 1.4.4). iOS-авто-зум при фокусе
+  // инпута лечится правилом «инпуты ≥16px на тач» в globals.css, а не запретом зума.
   viewportFit: "cover", // под вырезы/«чёлки» — env(safe-area-inset-*)
   themeColor: "#070A14",
 };

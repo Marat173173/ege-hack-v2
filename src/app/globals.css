@@ -96,6 +96,20 @@ body {
   /* обычный текст — Iosevka Charon */
   font-family: var(--font-sans), ui-monospace, "SF Mono", Menlo, monospace;
   transition: background-color 0.4s ease, color 0.4s ease;
+  /* мобилка: не «цепляем» прокрутку оверлеев на документ и глушим pull-to-refresh /
+     резиновый bounce; заодно стабилизирует прыжки адресной строки */
+  overscroll-behavior-y: none;
+}
+
+/* На тач-устройствах iOS авто-зумит страницу при фокусе поля с font-size < 16px.
+   Глобально поднимаем кегль фокусируемых полей до 16px на «грубом» указателе —
+   это убирает авто-зум без запрета пинч-зума (см. layout.tsx viewport). */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
 }
 
 /* ——— Логика типографики ———
@@ -154,6 +168,22 @@ strong,
   filter: drop-shadow(0 15px 35px rgba(0, 0, 0, 0.4))
     drop-shadow(0 5px 10px rgba(0, 0, 0, 0.2));
   animation: shimmer 8s linear infinite;
+}
+
+/* в светлой теме белый градиент/штрих заголовка выцветает — затемняем стопы */
+[data-theme="light"] .glass-text {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--hi) / 1) 0%,
+    rgb(var(--hi) / 0.5) 25%,
+    rgb(var(--hi) / 0.25) 45%,
+    rgb(var(--hi) / 0.9) 55%,
+    rgb(var(--hi) / 0.35) 75%,
+    rgb(var(--hi) / 1) 100%
+  );
+  background-size: 200% auto;
+  -webkit-text-stroke: 1.5px rgb(var(--hi) / 0.25);
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.18));
 }
 
 @keyframes shimmer {

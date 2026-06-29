@@ -55,7 +55,13 @@ export function Landing() {
   }, []);
 
   return (
-    <section className="relative flex min-h-[100dvh] w-full flex-col items-center justify-center overflow-hidden px-4 py-9 md:gap-6 md:px-6">
+    <section
+      className="relative flex min-h-[100dvh] w-full flex-col items-center justify-center overflow-hidden bg-bg-0 px-4 py-9 md:gap-6 md:px-6"
+      style={{
+        paddingTop: "max(2.25rem, env(safe-area-inset-top))",
+        paddingBottom: "max(2.25rem, env(safe-area-inset-bottom))",
+      }}
+    >
       {/* pixel bg + vignette */}
       <div className="pointer-events-none absolute inset-0 z-0">
         <PixelCanvas />
@@ -69,7 +75,13 @@ export function Landing() {
       </div>
 
       {/* переключатель темы */}
-      <div className="absolute right-4 top-4 z-20 md:right-6 md:top-6">
+      <div
+        className="absolute z-20"
+        style={{
+          top: "max(1rem, env(safe-area-inset-top))",
+          right: "max(1rem, env(safe-area-inset-right))",
+        }}
+      >
         <ThemeToggle />
       </div>
 
@@ -108,14 +120,17 @@ export function Landing() {
         initial={{ opacity: 0, y: 28 }}
         animate={loaded ? { opacity: 1, y: 0 } : {}}
         transition={{ duration: 0.9 }}
-        className="z-10 mt-5 flex flex-row flex-wrap items-center justify-center gap-3 md:mt-9"
+        className="z-10 mt-5 flex w-full max-w-[340px] flex-col items-stretch justify-center gap-3 md:mt-9 md:w-auto md:max-w-none md:flex-row md:flex-wrap md:items-center"
       >
-        <AnimatedLayerButton onClick={() => setScreen("onboarding")}>
+        <AnimatedLayerButton
+          onClick={() => setScreen("onboarding")}
+          className="w-full md:w-[200px]"
+        >
           Построить Шпиль
         </AnimatedLayerButton>
         <button
           onClick={() => setScreen("spire")}
-          className="flex h-[46px] items-center gap-2 rounded-[13px] border border-line bg-[rgb(var(--hi)/0.04)] px-6 text-sm font-semibold text-hi backdrop-blur-md transition-colors hover:bg-[rgb(var(--hi)/0.08)]"
+          className="flex h-[46px] w-full items-center justify-center gap-2 rounded-[13px] border border-line bg-[rgb(var(--hi)/0.04)] px-6 text-sm font-semibold text-hi backdrop-blur-md transition-colors hover:bg-[rgb(var(--hi)/0.08)] md:w-auto"
         >
           <Play size={15} /> Демо без регистрации
         </button>

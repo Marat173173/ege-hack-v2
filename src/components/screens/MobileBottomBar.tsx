@@ -100,7 +100,7 @@ export function MobileBottomBar() {
         <Gauge size={15} className="shrink-0 text-accent" />
         <div className="min-w-0 flex-1">
           <div className="mb-0.5 flex items-center justify-between">
-            <span className="hud-label text-[8px] text-lo">Готовность · {subject.short}</span>
+            <span className="hud-label text-[10px] text-lo">Готовность · {subject.short}</span>
             <span className="font-mono text-[11px] font-bold text-accent">{ready}%</span>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-[rgb(var(--glass-hi)/0.1)]">
@@ -112,8 +112,8 @@ export function MobileBottomBar() {
           </div>
         </div>
         <div className="shrink-0 text-right">
-          <div className="flex items-center justify-end gap-1 hud-label text-[7.5px] text-lo">
-            <CalendarClock size={8} /> До ЕГЭ
+          <div className="flex items-center justify-end gap-1 hud-label text-[10px] text-lo">
+            <CalendarClock size={9} /> До ЕГЭ
           </div>
           <b className="font-mono text-[12px] text-hi">{subject.days}д</b>
         </div>
@@ -251,7 +251,7 @@ function CloudItem({
     >
       {custom ?? <Icon size={22} className={accent ? "text-accent" : "text-mid"} />}
       <span
-        className="hud-label text-[8.5px]"
+        className="hud-label text-[10px]"
         style={{ color: accent ? "rgb(var(--accent))" : "rgb(var(--mid))" }}
       >
         {label}

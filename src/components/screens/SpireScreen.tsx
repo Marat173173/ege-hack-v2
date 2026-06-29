@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import { useApp } from "@/lib/store";
-import { detectTier, prefersReducedMotion, type Tier } from "@/lib/device-tier";
+import { detectTier, type Tier } from "@/lib/device-tier";
 import { isLocked, unlockGap } from "@/lib/floor-build";
 import { PixelBloom, type BloomTrigger } from "@/components/spire/PixelBloom";
 import { useIsMobile } from "@/lib/use-media";
@@ -49,17 +49,26 @@ export function SpireScreen() {
 
   React.useEffect(() => {
     setTier(detectTier());
-    setReduceMotion(prefersReducedMotion());
     ensureDay(); // подтянуть гейм-прогресс из localStorage + откатить день
+    // reduce-motion слушаем вживую: если юзер включит «уменьшить движение» в ОС
+    // прямо во время сессии — Шпиль перестанет крутиться без перезагрузки
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduceMotion(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setReduceMotion(e.matches);
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
   }, [ensureDay]);
 
-  // выбор первого «боссового» этажа без наезда, чтобы ценность была в один тап
+  // авто-выбор боссового этажа: на ДЕСКТОПЕ подсвечивает в правом рейле (ненавязчиво).
+  // На МОБИЛЕ это открывало bottom-sheet поверх сцены до первого тапа — поэтому
+  // на телефоне авто-выбор пропускаем, пусть юзер сам тапнет этаж.
   React.useEffect(() => {
+    if (isMobile) return;
     const last = subject.floors[subject.floors.length - 1];
     const id = setTimeout(() => selectFloor(last.id, { zoom: false }), 700);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subjectKey]);
+  }, [subjectKey, isMobile]);
 
   function handlePick(id: string, clientX: number, clientY: number) {
     const f = floorById(id);

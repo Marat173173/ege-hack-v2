@@ -24,8 +24,16 @@ function Confetti({ accent }: { accent: string }) {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const W = (canvas.width = window.innerWidth);
-    const H = (canvas.height = window.innerHeight);
+    // DPR-масштаб: backing store в физических пикселях, рисуем в CSS-координатах —
+    // иначе конфетти мылится на retina-телефонах
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    ctx.scale(dpr, dpr);
 
     const palette = [accent, "#5BE3B0", "#FFC65B", "#FF5C6E", "#EAF0FC", "#6E8BFF"];
     type P = {
@@ -40,7 +48,11 @@ function Confetti({ accent }: { accent: string }) {
       c: string;
       shape: number;
     };
-    const N = window.innerWidth < 780 ? 90 : 170;
+    // на слабых устройствах меньше частиц (меньше save/restore/rotate за кадр)
+    const lowPower =
+      ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8) <= 4 ||
+      (navigator.hardwareConcurrency || 8) <= 4;
+    const N = W < 780 ? (lowPower ? 55 : 90) : 170;
     const parts: P[] = Array.from({ length: N }, () => ({
       x: W / 2 + (Math.random() - 0.5) * 220,
       y: H * 0.42 + (Math.random() - 0.5) * 60,

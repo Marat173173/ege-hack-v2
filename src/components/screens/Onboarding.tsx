@@ -68,6 +68,11 @@ export function Onboarding() {
           ))}
         </div>
 
+        {/* на мобиле названия шагов скрыты у точек — показываем текущий явно */}
+        <div className="mb-4 hud-label text-[11px] text-mid sm:hidden">
+          Шаг {step + 1}/{STEPS.length} · {STEPS[step]}
+        </div>
+
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
@@ -83,7 +88,7 @@ export function Onboarding() {
                   Шпиль построится под структуру именно этого экзамена. Новые
                   предметы подключаются постоянно.
                 </p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2">
                   {CARDS.map((c) => {
                     const Icon = ICONS[c.icon] ?? Languages;
                     const live = c.status === "live";
@@ -137,7 +142,10 @@ export function Onboarding() {
                   max={100}
                   value={goal}
                   onChange={(e) => setGoal(+e.target.value)}
-                  className="w-full accent-[rgb(var(--accent))]"
+                  // touch-action:none — драг ползунка не скроллит страницу;
+                  // py увеличивает зону захвата на тач
+                  className="w-full py-2 accent-[rgb(var(--accent))]"
+                  style={{ touchAction: "none" }}
                 />
                 <div className="mt-1 flex justify-between font-mono text-[10px] text-lo">
                   <span>порог</span>

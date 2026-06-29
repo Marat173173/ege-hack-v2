@@ -324,7 +324,9 @@ export function Floor({
     if (typeof document !== "undefined") document.body.style.cursor = "grab";
   }
 
-  const showLabel = hovered || selected;
+  // на тач-экране hover нет — даём подпись «слабому/начни-здесь» этажу всегда,
+  // чтобы у мобильного юзера был хотя бы один читаемый ориентир без тапа
+  const showLabel = hovered || selected || isWeakest;
 
   return (
     <group ref={groupRef} position={[0, baseY, 0]}>
@@ -378,7 +380,11 @@ export function Floor({
           <div
             style={{
               pointerEvents: "none",
-              whiteSpace: "nowrap",
+              // было nowrap без ограничения → длинные русские названия уезжали за
+              // край экрана. Ограничиваем ширину и разрешаем перенос.
+              whiteSpace: "normal",
+              maxWidth: "min(60vw, 280px)",
+              width: "max-content",
               background: "rgba(13,20,34,.82)",
               backdropFilter: "blur(6px)",
               border: "1px solid rgba(255,255,255,.14)",
@@ -386,6 +392,7 @@ export function Floor({
               borderRadius: 10,
               padding: "5px 10px",
               fontSize: 12,
+              lineHeight: 1.3,
               fontFamily: "ui-monospace, monospace",
             }}
           >

@@ -145,7 +145,11 @@ export function Solve() {
       {/* top bar — плоский, лёгкий */}
       <header
         className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-bg-0/85 px-4 py-3 backdrop-blur-md"
-        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+        style={{
+          paddingTop: "max(0.75rem, env(safe-area-inset-top))",
+          paddingLeft: "max(1rem, env(safe-area-inset-left))",
+          paddingRight: "max(1rem, env(safe-area-inset-right))",
+        }}
       >
         <button
           onClick={() => setScreen("spire")}
@@ -188,7 +192,13 @@ export function Solve() {
         />
       </div>
 
-      <main className="mx-auto max-w-[640px] px-4 py-6 pb-[max(2rem,env(safe-area-inset-bottom))] md:py-8">
+      <main
+        className="mx-auto max-w-[640px] px-4 py-6 pb-[max(2rem,env(safe-area-inset-bottom))] md:py-8"
+        style={{
+          paddingLeft: "max(1rem, env(safe-area-inset-left))",
+          paddingRight: "max(1rem, env(safe-area-inset-right))",
+        }}
+      >
         <AnimatePresence mode="wait">
           {!done ? (
             <motion.div

@@ -87,6 +87,17 @@ export function Inspector() {
 
   const visible = mode === "parent" || !!selectedId;
 
+  // мобайл-шит: блокируем скролл фона (сцена/страница), пока шит открыт — иначе
+  // он «протекает» за скрим. Десктоп-рейл фон не перекрывает, лочить не нужно.
+  React.useEffect(() => {
+    if (!visible || !isMobile) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [visible, isMobile]);
+
   const onSheetDragEnd = (_: unknown, info: PanInfo) => {
     if (info.offset.y > 110 || info.velocity.y > 600) closeInspector();
   };
@@ -100,12 +111,18 @@ export function Inspector() {
                   <button
                     onClick={closeInspector}
                     aria-label="Закрыть"
-                    className="absolute right-0 top-0 grid h-7 w-7 place-items-center rounded-lg border border-line text-mid transition-colors hover:text-hi"
+                    className={`absolute right-0 top-0 grid place-items-center rounded-lg border border-line text-mid transition-colors hover:text-hi ${
+                      isMobile ? "h-11 w-11" : "h-7 w-7"
+                    }`}
                   >
-                    <X size={15} />
+                    <X size={isMobile ? 18 : 15} />
                   </button>
                   <span className="hud-label text-[9px] text-lo">{floor.tag}</span>
-                  <h3 className="m-0 mb-2 mt-1 pr-8 font-serif text-xl leading-tight text-hi">
+                  <h3
+                    className={`m-0 mb-2 mt-1 font-serif text-xl leading-tight text-hi ${
+                      isMobile ? "pr-12" : "pr-8"
+                    }`}
+                  >
                     {floor.name}
                   </h3>
                   <StateChip state={floorState(floor)} />
@@ -134,7 +151,7 @@ export function Inspector() {
 
                   <button
                     onClick={() => openSolve(floor.id)}
-                    className="flex w-full items-center justify-between rounded-xl border border-line bg-white/[0.03] px-4 py-3 text-left text-hi transition-colors hover:bg-white/[0.06]"
+                    className="flex w-full items-center justify-between rounded-xl border border-line bg-white/[0.03] px-4 py-3 text-left text-hi transition-colors hover:bg-white/[0.06] active:bg-white/[0.09]"
                   >
                     <span className="flex items-center gap-2 text-[13px] font-medium">
                       <Dumbbell size={16} /> Тренировать тему
@@ -145,7 +162,7 @@ export function Inspector() {
                   {floor.boss ? (
                     <button
                       onClick={() => openModal("critique", floor.id)}
-                      className="flex w-full items-center justify-between rounded-xl border border-line bg-white/[0.03] px-4 py-3 text-left text-hi transition-colors hover:bg-white/[0.06]"
+                      className="flex w-full items-center justify-between rounded-xl border border-line bg-white/[0.03] px-4 py-3 text-left text-hi transition-colors hover:bg-white/[0.06] active:bg-white/[0.09]"
                     >
                       <span className="flex items-center gap-2 text-[13px] font-medium">
                         <ScanLine size={16} /> Разобрать развёрнутый ответ
@@ -155,7 +172,7 @@ export function Inspector() {
                   ) : (
                     <button
                       onClick={() => openSolve(floor.id)}
-                      className="flex w-full items-center justify-between rounded-xl border border-line bg-white/[0.03] px-4 py-3 text-left text-hi transition-colors hover:bg-white/[0.06]"
+                      className="flex w-full items-center justify-between rounded-xl border border-line bg-white/[0.03] px-4 py-3 text-left text-hi transition-colors hover:bg-white/[0.06] active:bg-white/[0.09]"
                     >
                       <span className="flex items-center gap-2 text-[13px] font-medium">
                         <Timer size={16} /> Симуляция в формате экзамена
@@ -188,7 +205,7 @@ export function Inspector() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onMouseDown={(e) => e.target === e.currentTarget && closeInspector()}
+            onPointerDown={(e) => e.target === e.currentTarget && closeInspector()}
             style={{
               background: "rgb(var(--scrim) / 0.42)",
               // только мягкий расфокус (без brightness)
@@ -230,7 +247,10 @@ export function Inspector() {
                     style={{ background: "rgb(var(--glass-hi) / 0.35)" }}
                   />
                 </div>
-                <div className="thin-scroll max-h-[78dvh] overflow-y-auto p-4 pb-[max(16px,env(safe-area-inset-bottom))]">
+                <div
+                  className="thin-scroll max-h-[78dvh] overflow-y-auto p-4 pb-[max(16px,env(safe-area-inset-bottom))]"
+                  style={{ overscrollBehavior: "contain" }}
+                >
                   {content}
                 </div>
               </div>

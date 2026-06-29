@@ -52,12 +52,29 @@ export function ChatScreen() {
   const seq = React.useRef(100);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const replyTimer = React.useRef<ReturnType<typeof setTimeout>>();
+  // высота визуального вьюпорта: на iOS клавиатура НЕ сжимает 100dvh, поэтому
+  // привязываем высоту экрана к visualViewport — иначе поле ввода и последние
+  // сообщения уезжают под клавиатуру.
+  const [vh, setVh] = React.useState<number | null>(null);
 
   const msgs = tab === "ai" ? aiMsgs : commMsgs;
 
   React.useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => setVh(vv.height);
+    onResize();
+    vv.addEventListener("resize", onResize);
+    vv.addEventListener("scroll", onResize);
+    return () => {
+      vv.removeEventListener("resize", onResize);
+      vv.removeEventListener("scroll", onResize);
+    };
+  }, []);
+
+  React.useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [msgs, typing, tab]);
+  }, [msgs, typing, tab, vh]);
 
   // чистим отложенный ответ ИИ при размонтировании (уход с экрана)
   React.useEffect(() => () => clearTimeout(replyTimer.current), []);
@@ -81,7 +98,10 @@ export function ChatScreen() {
   }
 
   return (
-    <div className="flex h-[100dvh] w-full flex-col bg-bg-0">
+    <div
+      className="flex h-[100dvh] w-full flex-col bg-bg-0"
+      style={vh ? { height: `${vh}px` } : undefined}
+    >
       {/* header */}
       <header
         className="z-10 flex items-center justify-between border-b border-line bg-bg-0/85 px-4 py-3 backdrop-blur-md"
@@ -216,7 +236,7 @@ export function ChatScreen() {
             <button
               key={q}
               onClick={() => setInput(q)}
-              className="flex shrink-0 items-center gap-1 rounded-full border border-line bg-[rgb(var(--glass-hi)/0.03)] px-3 py-1.5 text-[12px] text-mid transition-colors hover:border-accent/40 hover:text-hi"
+              className="flex min-h-[40px] shrink-0 items-center gap-1 rounded-full border border-line bg-[rgb(var(--glass-hi)/0.03)] px-3.5 py-2 text-[12px] text-mid transition-colors hover:border-accent/40 hover:text-hi active:border-accent/40"
             >
               <Sparkles size={11} className="text-accent" /> {q}
             </button>
@@ -234,6 +254,15 @@ export function ChatScreen() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && send()}
+            onFocus={() =>
+              // даём клавиатуре/visualViewport устаканиться, затем прокручиваем
+              // ленту вниз, чтобы поле и последние сообщения были видны
+              setTimeout(
+                () =>
+                  scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }),
+                250
+              )
+            }
             aria-label="Сообщение"
             placeholder={tab === "ai" ? "Спроси ИИ-наставника…" : "Сообщение в чат…"}
             className="flex-1 bg-transparent px-3 py-2.5 text-[15px] text-hi outline-none placeholder:text-lo"

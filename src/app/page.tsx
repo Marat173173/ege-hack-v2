@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, MotionConfig } from "framer-motion";
 import { useApp } from "@/lib/store";
 import { accentForKey } from "@/data/catalog";
 import { setSoundEnabled } from "@/lib/sound";
@@ -67,25 +67,30 @@ export default function Page() {
   }, [setTheme]);
 
   return (
-    <ToastProvider>
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={screen}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.35 }}
-        >
-          {screen === "landing" && <Landing />}
-          {screen === "onboarding" && <Onboarding />}
-          {screen === "format" && <FormatChoiceScreen />}
-          {(screen === "spire" || screen === "parent") && <SpireScreen />}
-          {screen === "solve" && <Solve />}
-          {screen === "profile" && <ProfileScreen />}
-          {screen === "chat" && <ChatScreen />}
-          {screen === "leagues" && <LeaguesScreen />}
-        </motion.div>
-      </AnimatePresence>
-    </ToastProvider>
+    // reducedMotion="user": при включённом «Reduce Motion» в ОС framer-motion
+    // сам гасит transform/layout-анимации (тряску, пульс, слайды, дрейф пузырей)
+    // во всём дереве — глобальный фикс вместо правок в каждом компоненте.
+    <MotionConfig reducedMotion="user">
+      <ToastProvider>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={screen}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.35 }}
+          >
+            {screen === "landing" && <Landing />}
+            {screen === "onboarding" && <Onboarding />}
+            {screen === "format" && <FormatChoiceScreen />}
+            {(screen === "spire" || screen === "parent") && <SpireScreen />}
+            {screen === "solve" && <Solve />}
+            {screen === "profile" && <ProfileScreen />}
+            {screen === "chat" && <ChatScreen />}
+            {screen === "leagues" && <LeaguesScreen />}
+          </motion.div>
+        </AnimatePresence>
+      </ToastProvider>
+    </MotionConfig>
   );
 }

@@ -45,7 +45,7 @@ export function BottomSheet({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+          onPointerDown={(e) => e.target === e.currentTarget && onClose()}
           role="dialog"
           aria-modal="true"
           aria-label={label}

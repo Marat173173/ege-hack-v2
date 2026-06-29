@@ -95,8 +95,12 @@ export function PathScreen() {
               className="absolute -translate-x-1/2"
               style={{ left: `${cx}%`, top }}
             >
-              {/* подпись темы */}
-              <div className="mb-1.5 text-center">
+              {/* подпись темы — тоже кликабельна (тап по названию = тап по узлу) */}
+              <button
+                type="button"
+                onClick={() => tap(f, i)}
+                className="mb-1.5 block w-full text-center"
+              >
                 <div className="text-[12px] font-semibold text-hi">{f.name}</div>
                 {locked ? (
                   <div className="font-mono text-[9px] text-lo">+{unlockGap(floors, i)}% до открытия</div>
@@ -105,7 +109,7 @@ export function PathScreen() {
                     {meta.label.split(" ")[0]}
                   </div>
                 )}
-              </div>
+              </button>
 
               {/* узел */}
               <motion.button
