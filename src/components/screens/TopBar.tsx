@@ -38,7 +38,7 @@ export function TopBar() {
           На мобилке слева сверху стоит бургер (из MobileBottomBar) — отступаем
           вправо, чтобы пилюля предмета не налезала на него. */}
       <div
-        className="pointer-events-auto fixed left-2 top-2 z-[4] flex max-w-[calc(100%-16px)] flex-nowrap items-center gap-2 pl-[52px] md:left-4 md:top-4 md:flex-wrap md:gap-3 md:pl-0"
+        className="pointer-events-auto fixed left-2 top-2 z-[4] flex max-w-[calc(100%-190px)] flex-nowrap items-center gap-2 pl-[52px] md:left-4 md:top-4 md:max-w-[calc(100%-16px)] md:flex-wrap md:gap-3 md:pl-0"
         style={{ top: "max(0.5rem, env(safe-area-inset-top))" }}
       >
         {/* бренд — логотип-Шпиль виден только на десктопе (на мобилке его роль
@@ -90,7 +90,7 @@ export function TopBar() {
         style={{ top: "max(0.5rem, env(safe-area-inset-top))" }}
       >
         {/* XP-кольцо дневной цели (как Apple Fitness) */}
-        <div className="relative flex items-center gap-2 rounded-xl border border-line bg-panel px-2 py-1.5 backdrop-blur-md md:px-2.5">
+        <div className="relative flex min-h-[44px] items-center gap-2 rounded-xl border border-line bg-panel px-2 py-1.5 backdrop-blur-md md:px-2.5">
           <XpRing ratio={dailyRatio} level={lvl.level} />
           {/* текст цели — скрыт на мобиле (есть в нижнем баре) */}
           <div className="hidden pr-0.5 md:block">
@@ -119,7 +119,7 @@ export function TopBar() {
 
         {/* живой огонёк серии */}
         <motion.div
-          className="flex items-center gap-1.5 rounded-xl border border-line bg-panel px-2.5 py-2 backdrop-blur-md"
+          className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-line bg-panel px-2.5 py-2 backdrop-blur-md"
           title="Серия дней"
         >
           <motion.span
@@ -132,7 +132,7 @@ export function TopBar() {
           <b className="text-[15px] font-bold text-hi">{game.streak}</b>
         </motion.div>
 
-        <div className="hidden rounded-xl border border-line bg-panel px-3 py-2 backdrop-blur-md sm:block">
+        <div className="hidden min-h-[44px] rounded-xl border border-line bg-panel px-3 py-2 backdrop-blur-md md:block">
           <div className="flex items-center gap-1 hud-label text-[8.5px] text-lo">
             <CalendarClock size={9} /> До ЕГЭ
           </div>

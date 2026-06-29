@@ -532,13 +532,23 @@ function SpireContent({
     const canvas = gl.domElement;
     let down: { x: number; y: number } | null = null;
     let dragging = false;
+    // активные указатели: при 2+ пальцах идёт пинч-зум — орбиту отключаем,
+    // иначе первый палец продолжает вращать сцену и её «колбасит» во время пинча
+    const pointers = new Set<number>();
 
     const onDown = (e: PointerEvent) => {
+      pointers.add(e.pointerId);
       down = { x: e.clientX, y: e.clientY };
       dragging = false;
       canvas.setPointerCapture(e.pointerId);
     };
     const onMoveP = (e: PointerEvent) => {
+      // во время мультитача (пинч) орбиту не считаем
+      if (pointers.size >= 2) {
+        down = null;
+        dragging = false;
+        return;
+      }
       if (!down) return;
       const dx = e.clientX - down.x,
         dy = e.clientY - down.y;
@@ -550,7 +560,8 @@ function SpireContent({
         down = { x: e.clientX, y: e.clientY };
       }
     };
-    const onUp = () => {
+    const onUp = (e: PointerEvent) => {
+      pointers.delete(e.pointerId);
       down = null;
       dragging = false;
     };
@@ -580,6 +591,7 @@ function SpireContent({
     canvas.addEventListener("pointerdown", onDown);
     canvas.addEventListener("pointermove", onMoveP);
     canvas.addEventListener("pointerup", onUp);
+    canvas.addEventListener("pointercancel", onUp);
     canvas.addEventListener("wheel", onWheel, { passive: false });
     canvas.addEventListener("touchmove", onTouchMove, { passive: true });
     canvas.addEventListener("touchend", onTouchEnd);
@@ -587,6 +599,7 @@ function SpireContent({
       canvas.removeEventListener("pointerdown", onDown);
       canvas.removeEventListener("pointermove", onMoveP);
       canvas.removeEventListener("pointerup", onUp);
+      canvas.removeEventListener("pointercancel", onUp);
       canvas.removeEventListener("wheel", onWheel);
       canvas.removeEventListener("touchmove", onTouchMove);
       canvas.removeEventListener("touchend", onTouchEnd);
@@ -660,7 +673,12 @@ function SpireContent({
 }
 
 export function SpireScene(props: SpireProps) {
-  const dpr: [number, number] = props.lightMode ? [1, 1] : [1, 1.5];
+  // high-tier телефоны/экраны рендерим резче (до 2x), mid/low — мягче ради FPS
+  const dpr: [number, number] = props.lightMode
+    ? [1, 1]
+    : props.tier === "high"
+    ? [1, 2]
+    : [1, 1.5];
   return (
     <Canvas
       dpr={dpr}

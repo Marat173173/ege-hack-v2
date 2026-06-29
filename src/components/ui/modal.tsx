@@ -166,8 +166,8 @@ export const Modal = ({
           flex: "0 0 auto",
           display: "grid",
           placeItems: "center",
-          width: 38,
-          height: 38,
+          width: isMobile ? 44 : 38,
+          height: isMobile ? 44 : 38,
           borderRadius: 12,
           border: "1px solid rgba(132,156,200,0.18)",
           background: "transparent",
@@ -206,7 +206,7 @@ export const Modal = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
-          onMouseDown={(e) => {
+          onPointerDown={(e) => {
             if (dismissable && e.target === e.currentTarget) onClose();
           }}
           role="dialog"

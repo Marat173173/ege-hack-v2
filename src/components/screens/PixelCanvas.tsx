@@ -19,8 +19,20 @@ export function PixelCanvas() {
 
     const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const isMobile = matchMedia("(max-width:780px)").matches;
-    const GAP = isMobile ? 11 : 6;
+    // слабое устройство / экономия трафика → не гоняем per-pixel rAF (батарея/жар)
+    const nav = navigator as Navigator & {
+      deviceMemory?: number;
+      connection?: { saveData?: boolean };
+    };
+    const lowPower =
+      (nav.deviceMemory !== undefined && nav.deviceMemory <= 4) ||
+      (navigator.hardwareConcurrency || 8) <= 4 ||
+      nav.connection?.saveData === true;
+    // на тач крупнее шаг сетки → кратно меньше пикселей/кадр
+    const GAP = isMobile ? 14 : 6;
     const SPEED = 30;
+    // staticOnly: рисуем один кадр и не запускаем анимационный цикл
+    const staticOnly = reduced || lowPower;
     const COLORS = ["#5C6B89", "#5C6B89", "#5C6B89", "#5C6B89", "#F2B344"];
 
     type P = {
@@ -90,14 +102,14 @@ export function PixelCanvas() {
       canvas!.height = H;
       canvas!.style.width = W + "px";
       canvas!.style.height = H + "px";
-      const eff = reduced ? 0 : Math.min(SPEED, 100) * 0.001;
+      const eff = staticOnly ? 0 : Math.min(SPEED, 100) * 0.001;
       pixels = [];
       for (let x = 0; x < W; x += GAP) {
         for (let y = 0; y < H; y += GAP) {
           const color = COLORS[(Math.random() * COLORS.length) | 0];
           const dx = x - W / 2,
             dy = y - H / 2;
-          const delay = reduced ? 0 : Math.sqrt(dx * dx + dy * dy) * 0.65;
+          const delay = staticOnly ? 0 : Math.sqrt(dx * dx + dy * dy) * 0.65;
           pixels.push(makePixel(W, H, x, y, color, eff, delay));
         }
       }
@@ -129,7 +141,7 @@ export function PixelCanvas() {
     }
 
     build();
-    if (reduced) staticDraw();
+    if (staticOnly) staticDraw();
     else start();
 
     let rt: ReturnType<typeof setTimeout>;
@@ -137,14 +149,14 @@ export function PixelCanvas() {
       clearTimeout(rt);
       rt = setTimeout(() => {
         build();
-        if (reduced) staticDraw();
+        if (staticOnly) staticDraw();
       }, 120);
     });
     ro.observe(wrap);
 
     const onVis = () => {
       if (document.hidden) stop();
-      else if (!reduced) start();
+      else if (!staticOnly) start();
     };
     document.addEventListener("visibilitychange", onVis);
 

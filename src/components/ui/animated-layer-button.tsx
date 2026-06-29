@@ -40,6 +40,8 @@ const AnimatedLayerButton = React.forwardRef<
       <svg
         className={cn(
           "absolute h-auto transition-all duration-300 ease-in-out group-hover:left-0 group-hover:w-full",
+          // на тач hover не срабатывает — даём reveal на нажатие
+          "group-active:left-0 group-active:w-full",
           "w-[64px] -left-[32px]",
           "animate-spin-slow"
         )}
@@ -82,7 +84,7 @@ const AnimatedLayerButton = React.forwardRef<
       </svg>
 
       {/* текст — становится прозрачным на hover, открывая вертушку */}
-      <span className="z-10 text-[1.05em] font-bold text-[rgb(var(--bg-0))] transition-colors duration-300 group-hover:text-transparent">
+      <span className="z-10 text-[1.05em] font-bold text-[rgb(var(--bg-0))] transition-colors duration-300 group-hover:text-transparent group-active:text-transparent">
         {children}
       </span>
     </button>

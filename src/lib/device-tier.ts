@@ -18,8 +18,13 @@ export function detectTier(): Tier {
     /Mobi|Android/i.test(navigator.userAgent) ||
     (typeof window !== "undefined" && window.matchMedia("(max-width: 780px)").matches);
 
-  if (isMobile && (cores <= 4 || mem <= 3)) return "low";
-  if (isMobile || cores <= 4 || mem <= 4) return "mid";
+  if (isMobile) {
+    if (cores <= 4 || mem <= 3) return "low"; // дешёвый Android — лёгкий режим
+    if (cores >= 8 && mem >= 6) return "high"; // флагман тянет полный 3D
+    return "mid";
+  }
+  // десктоп / ноутбук
+  if (cores <= 4 || mem <= 4) return "mid";
   return "high";
 }
 

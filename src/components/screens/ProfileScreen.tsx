@@ -83,7 +83,7 @@ export function ProfileScreen() {
       >
         <button
           onClick={() => setScreen("spire")}
-          className="-ml-2 flex min-h-[44px] items-center gap-1.5 px-2 text-[13px] text-mid transition-colors hover:text-hi"
+          className="-ml-2 flex min-h-[44px] items-center gap-1.5 px-2 text-[13px] text-mid transition-colors hover:text-hi active:text-hi"
         >
           <ArrowLeft size={16} /> к Шпилю
         </button>
@@ -121,7 +121,7 @@ export function ProfileScreen() {
             </div>
             <button
               onClick={() => (editing ? saveEdit() : setEditing(true))}
-              className="flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-xl border border-line bg-[rgb(var(--glass-hi)/0.04)] px-3 py-2 text-[12px] text-hi transition-colors hover:bg-[rgb(var(--glass-hi)/0.08)]"
+              className="flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-xl border border-line bg-[rgb(var(--glass-hi)/0.04)] px-3 py-2 text-[12px] text-hi transition-colors hover:bg-[rgb(var(--glass-hi)/0.08)] active:bg-[rgb(var(--glass-hi)/0.12)]"
             >
               {editing ? <Check size={14} /> : <Pencil size={13} />}
               {editing ? "Готово" : "Изменить"}

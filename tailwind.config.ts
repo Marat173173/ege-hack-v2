@@ -7,6 +7,11 @@ import type { Config } from "tailwindcss";
  */
 const config: Config = {
   content: ["./src/**/*.{ts,tsx,mdx}"],
+  // hover:-утилиты применяем ТОЛЬКО там, где есть настоящий hover (@media (hover:hover)).
+  // На тач-экранах это убирает «залипающий» :hover после тапа.
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   theme: {
     extend: {
       colors: {

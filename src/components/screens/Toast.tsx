@@ -33,7 +33,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 20, opacity: 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 22 }}
-            className="liquid-glass pointer-events-none fixed bottom-20 left-1/2 z-[40] flex max-w-[88vw] -translate-x-1/2 items-center gap-2.5 rounded-xl px-4 py-2.5"
+            className="liquid-glass pointer-events-none fixed bottom-20 left-1/2 z-[70] flex max-w-[88vw] -translate-x-1/2 items-center gap-2.5 rounded-xl px-4 py-2.5"
           >
             <Sparkles size={15} className="shrink-0 text-accent" />
             <span

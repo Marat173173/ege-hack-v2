@@ -424,9 +424,10 @@ export const CarouselDeck = ({
         }
         .deck-dots {
           display: flex;
-          gap: 6px;
+          gap: 10px;
         }
         .deck-dot {
+          position: relative;
           width: 7px;
           height: 7px;
           border-radius: 50%;
@@ -435,6 +436,13 @@ export const CarouselDeck = ({
           background: rgba(132, 156, 200, 0.28);
           cursor: pointer;
           transition: background 0.2s, transform 0.2s;
+        }
+        /* невидимая увеличенная зона тапа (точки 7px слишком мелкие для пальца) */
+        .deck-dot::before {
+          content: "";
+          position: absolute;
+          inset: -11px;
+          border-radius: 50%;
         }
         .deck-dot.on {
           background: rgb(var(--accent));
@@ -452,8 +460,8 @@ export const CarouselDeck = ({
           gap: 10px;
         }
         .deck-arrow {
-          width: 2.5rem;
-          height: 2.5rem;
+          width: 2.75rem;
+          height: 2.75rem;
           border-radius: 50%;
           display: flex;
           align-items: center;
