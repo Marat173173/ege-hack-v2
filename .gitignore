@@ -31,3 +31,6 @@ yarn-error.log*
 .env
 .env.local
 .env.production.local
+
+# RAG: сгенерированные материалы (большой объём, генерируются по требованию)
+data/generated/
