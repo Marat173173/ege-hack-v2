@@ -1,17 +1,26 @@
 /**
- * Клиент Anthropic API + системный промпт ИИ-репетитора.
+ * LLM-клиент через Polza AI — российский OpenAI-совместимый агрегатор.
  *
- * Ключ берётся из ANTHROPIC_API_KEY. Если ключа нет — функция answer()
- * вернёт заглушку, чтобы остальной код работал без оплаты на этапе разработки.
+ * Polza позволяет вызывать Claude из России без VPN и зарубежных карт.
+ * API совместим с OpenAI SDK, поэтому используем именно его.
+ *
+ * Переменные окружения:
+ *   POLZA_API_KEY  — ключ из polza.ai/dashboard/api-keys
+ *   POLZA_MODEL    — id модели в формате "anthropic/claude-haiku-4-5",
+ *                    "openai/gpt-4o-mini" и т.п. (по умолчанию Haiku 4.5)
+ *
+ * Если POLZA_API_KEY не задан — возвращается заглушка (для разработки
+ * без оплаты, чтобы остальной код работал).
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import type { RetrievedChunk } from "./search";
 
-const apiKey = process.env.ANTHROPIC_API_KEY;
-const client = apiKey ? new Anthropic({ apiKey }) : null;
+const apiKey = process.env.POLZA_API_KEY;
+const baseURL = process.env.POLZA_BASE_URL || "https://polza.ai/api/v1";
+const MODEL = process.env.POLZA_MODEL || "anthropic/claude-haiku-4-5";
 
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5";
+const client = apiKey ? new OpenAI({ apiKey, baseURL }) : null;
 
 /** Промпт «опытный репетитор ЕГЭ». Краткий, без излишеств. */
 function buildSystemPrompt(): string {
@@ -39,10 +48,6 @@ export type ChatTurn = { role: "user" | "assistant"; content: string };
 
 /**
  * Получить ответ от LLM с RAG-контекстом.
- *
- * @param question текущий вопрос пользователя
- * @param chunks найденные релевантные фрагменты
- * @param history предыдущие сообщения в этом разговоре (опционально)
  */
 export async function answer(
   question: string,
@@ -52,7 +57,7 @@ export async function answer(
   if (!client) {
     // Заглушка для разработки без API-ключа
     return [
-      "⚠️ ANTHROPIC_API_KEY не задан — отвечаю заглушкой.",
+      "⚠️ POLZA_API_KEY не задан — отвечаю заглушкой.",
       "",
       `Вопрос: ${question}`,
       "",
@@ -63,18 +68,17 @@ export async function answer(
 
   const userMessage = `${buildContextBlock(chunks)}\n\nВопрос ученика: ${question}`;
 
-  const messages: { role: "user" | "assistant"; content: string }[] = [
-    ...history.slice(-6), // последние 3 пары — экономим токены
+  const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
+    { role: "system", content: buildSystemPrompt() },
+    ...history.slice(-6),
     { role: "user", content: userMessage },
   ];
 
-  const response = await client.messages.create({
+  const response = await client.chat.completions.create({
     model: MODEL,
     max_tokens: 800,
-    system: buildSystemPrompt(),
     messages,
   });
 
-  const block = response.content.find((b) => b.type === "text");
-  return block && "text" in block ? block.text : "Не удалось получить ответ.";
+  return response.choices[0]?.message?.content || "Не удалось получить ответ.";
 }

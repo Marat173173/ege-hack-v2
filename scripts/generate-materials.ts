@@ -1,36 +1,45 @@
 /**
- * Скрипт генерации учебных материалов по темам кодификатора ФИПИ.
+ * Скрипт генерации учебных материалов по темам кодификатора ФИПИ через Polza AI.
  *
- * Для каждой темы вызывает Claude API и просит написать:
- *   - правило (rule)         — суть темы простыми словами
- *   - пример (example)       — разбор типового задания ЕГЭ
+ * Для каждой темы вызывает Claude (через OpenAI-совместимый API Polza)
+ * и просит написать:
+ *   - правило (rule)
+ *   - пример-разбор (example)
  *   - типичные ошибки (mistake)
  *   - терминология (definition)
  *
  * Результат сохраняется в data/generated/ru/{topicCode}.json.
  *
- * Запуск:
- *   ANTHROPIC_API_KEY=sk-ant-... npx tsx scripts/generate-materials.ts
+ * Запуск (Windows PowerShell):
+ *   $env:POLZA_API_KEY="ваш-ключ-с-polza.ai"
+ *   npm run rag:generate
  *
- * Можно прервать в любой момент — скрипт пропускает уже сгенерированные темы
- * при повторном запуске.
+ * Запуск (Railway Console):
+ *   POLZA_API_KEY=... npx tsx scripts/generate-materials.ts
  *
- * Стоимость: ~$0.005 за тему (Haiku) × 53 темы ≈ $0.27 за весь русский язык.
+ * Идемпотентен: при повторном запуске пропускает уже сгенерированные темы.
+ * Стоимость: ~$0.005 за тему (Haiku) × 53 темы ≈ $0.30 за весь русский язык.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { FIPI_RU, type FipiTopic } from "../src/data/fipi-codifier-ru";
 import * as fs from "fs";
 import * as path from "path";
 
-const apiKey = process.env.ANTHROPIC_API_KEY;
+const apiKey = process.env.POLZA_API_KEY;
 if (!apiKey) {
-  console.error("❌ Не задан ANTHROPIC_API_KEY. Установи: $env:ANTHROPIC_API_KEY=\"sk-ant-...\"");
+  console.error("❌ Не задан POLZA_API_KEY.");
+  console.error("   Получи ключ на https://polza.ai/dashboard/api-keys");
+  console.error("   В PowerShell: $env:POLZA_API_KEY=\"sk-...\"");
   process.exit(1);
 }
 
-const client = new Anthropic({ apiKey });
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5";
+const client = new OpenAI({
+  apiKey,
+  baseURL: process.env.POLZA_BASE_URL || "https://polza.ai/api/v1",
+});
+
+const MODEL = process.env.POLZA_MODEL || "anthropic/claude-haiku-4-5";
 const OUT_DIR = path.join("data", "generated", "ru");
 
 type Material = {
@@ -82,18 +91,18 @@ function buildUserPrompt(topic: FipiTopic): string {
 }
 
 async function generateForTopic(topic: FipiTopic): Promise<Material[]> {
-  const response = await client.messages.create({
+  const response = await client.chat.completions.create({
     model: MODEL,
     max_tokens: 2500,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: buildUserPrompt(topic) }],
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: buildUserPrompt(topic) },
+    ],
   });
 
-  const block = response.content.find((b) => b.type === "text");
-  if (!block || !("text" in block)) throw new Error("пустой ответ от Claude");
-
+  const content = response.choices[0]?.message?.content || "";
   // Срезаем возможные markdown-обёртки на всякий случай
-  const raw = block.text.replace(/```json\s*|\s*```/g, "").trim();
+  const raw = content.replace(/```json\s*|\s*```/g, "").trim();
 
   try {
     const parsed = JSON.parse(raw) as Material[];
@@ -111,6 +120,7 @@ async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
   console.log(`📚 Генерирую материалы по ${FIPI_RU.length} темам ФИПИ`);
+  console.log(`   Через Polza AI (${process.env.POLZA_BASE_URL || "https://polza.ai/api/v1"})`);
   console.log(`   Модель: ${MODEL}`);
   console.log(`   Папка вывода: ${OUT_DIR}\n`);
 
@@ -145,7 +155,7 @@ async function main() {
       failed++;
     }
 
-    // Небольшая пауза, чтобы не упереться в rate limit Anthropic
+    // Небольшая пауза, чтобы не упереться в rate limit
     await new Promise((r) => setTimeout(r, 500));
   }
 
