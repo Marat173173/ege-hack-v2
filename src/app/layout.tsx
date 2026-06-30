@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { fontVars } from "./fonts";
 import "./globals.css";
+import { TutorFAB } from "@/components/tutor/TutorFAB";
 
 export const metadata: Metadata = {
   title: "ЕГЭ-ХАК · Взломай экзамен",
@@ -11,8 +12,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  // ВАЖНО: пинч-зум НЕ блокируем (a11y / WCAG 1.4.4). iOS-авто-зум при фокусе
-  // инпута лечится правилом «инпуты ≥16px на тач» в globals.css, а не запретом зума.
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover", // под вырезы/«чёлки» — env(safe-area-inset-*)
   themeColor: "#070A14",
 };
@@ -24,7 +25,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru" data-theme="dark" className={fontVars} suppressHydrationWarning>
-      <body>{children}</body>
+      <body>
+        {children}
+        <TutorFAB />
+      </body>
     </html>
   );
 }
