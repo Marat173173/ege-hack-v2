@@ -170,7 +170,7 @@ model KnowledgeChunk {
   source    String                       // источник: "fipi-codifier" | "claude-generated" | "manual"
   title     String
   text      String                       @db.Text
-  embedding Unsupported("vector(384)")?  // 384 для MiniLM (локальные эмбеддинги)
+  embedding Unsupported("vector(1536)")? // 1536 для OpenAI text-embedding-3-small через Polza
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

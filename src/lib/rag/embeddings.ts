@@ -1,51 +1,64 @@
 /**
- * Локальный сервис эмбеддингов на Transformers.js.
+ * Сервис эмбеддингов через Polza AI (OpenAI-совместимый API).
  *
- * Модель: paraphrase-multilingual-MiniLM-L12-v2 — 384-мерные векторы,
- * поддерживает русский язык, ~120 МБ.
+ * Модель: openai/text-embedding-3-small — 1536-мерные векторы,
+ * хорошее качество для русского и других языков.
  *
- * Модель кэшируется на диск при первом запуске и потом загружается
- * мгновенно из кэша. На Railway кэш сохраняется между перезапусками
- * контейнера.
+ * Стоимость: ~$0.02 за миллион токенов. Один типичный фрагмент
+ * 100-300 слов ≈ 300 токенов ≈ $0.000006 ≈ 0.001 ₽. Копейки.
+ *
+ * Переменные окружения:
+ *   POLZA_API_KEY        — общий ключ Polza (тот же, что для LLM)
+ *   POLZA_EMBED_MODEL    — модель эмбеддингов (по умолчанию text-embedding-3-small)
  */
 
-import { pipeline, env, type FeatureExtractionPipeline } from "@xenova/transformers";
+import OpenAI from "openai";
 
-// Кэшируем модель в /tmp на Railway (доступно для записи)
-env.cacheDir = process.env.TRANSFORMERS_CACHE || "/tmp/transformers-cache";
+const apiKey = process.env.POLZA_API_KEY;
+const baseURL = process.env.POLZA_BASE_URL || "https://polza.ai/api/v1";
+const MODEL = process.env.POLZA_EMBED_MODEL || "openai/text-embedding-3-small";
 
-let extractor: FeatureExtractionPipeline | null = null;
-let loadingPromise: Promise<FeatureExtractionPipeline> | null = null;
+let client: OpenAI | null = null;
 
-/** Лениво загружает модель один раз, потом возвращает кэш. */
-async function getExtractor(): Promise<FeatureExtractionPipeline> {
-  if (extractor) return extractor;
-  if (loadingPromise) return loadingPromise;
+function getClient(): OpenAI {
+  if (!apiKey) {
+    throw new Error(
+      "POLZA_API_KEY не задан — невозможно создавать эмбеддинги. " +
+      "Получи ключ на https://polza.ai/dashboard/api-keys"
+    );
+  }
+  if (!client) client = new OpenAI({ apiKey, baseURL });
+  return client;
+}
 
-  loadingPromise = pipeline(
-    "feature-extraction",
-    "Xenova/paraphrase-multilingual-MiniLM-L12-v2"
-  ) as Promise<FeatureExtractionPipeline>;
+/** Размерность эмбеддингов используемой модели. Важно для схемы БД. */
+export const EMBEDDING_DIM = 1536;
 
-  extractor = await loadingPromise;
-  return extractor;
+/**
+ * Возвращает эмбеддинг текста (вектор из 1536 чисел).
+ * Polza/OpenAI уже возвращают L2-нормализованные векторы — готово для cosine similarity.
+ */
+export async function embed(text: string): Promise<number[]> {
+  const response = await getClient().embeddings.create({
+    model: MODEL,
+    input: text,
+  });
+  return response.data[0].embedding;
 }
 
 /**
- * Возвращает эмбеддинг текста (вектор из 384 чисел).
- * Mean pooling + L2-нормализация — стандарт для cosine similarity.
+ * Эмбеддинг сразу для массива. Polza поддерживает батчи нативно.
+ * Существенно быстрее, чем по одному (один сетевой запрос вместо N).
  */
-export async function embed(text: string): Promise<number[]> {
-  const model = await getExtractor();
-  const output = await model(text, { pooling: "mean", normalize: true });
-  return Array.from(output.data as Float32Array);
-}
-
-/** Эмбеддинг сразу для массива (последовательно, чтобы не съесть память). */
 export async function embedBatch(texts: string[]): Promise<number[][]> {
-  const results: number[][] = [];
-  for (const t of texts) {
-    results.push(await embed(t));
-  }
-  return results;
+  if (texts.length === 0) return [];
+  const response = await getClient().embeddings.create({
+    model: MODEL,
+    input: texts,
+  });
+  // Сохраняем порядок по индексу на случай, если API его перемешает
+  return response.data
+    .slice()
+    .sort((a, b) => a.index - b.index)
+    .map((d) => d.embedding);
 }
