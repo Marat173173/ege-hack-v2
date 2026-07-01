@@ -11,8 +11,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "rag:generate": "tsx scripts/generate-materials.ts",
-    "rag:index": "tsx scripts/index-knowledge.ts",
-    "rag:tasks": "tsx scripts/generate-tasks.ts"
+    "rag:index": "tsx scripts/index-knowledge.ts"
   },
   "engines": {
     "node": ">=18.17.0"
