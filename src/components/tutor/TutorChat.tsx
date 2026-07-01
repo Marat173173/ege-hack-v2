@@ -4,6 +4,7 @@ import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Loader2, MessageCircle, Sparkles, X } from "lucide-react";
 import { useAnonAskCount } from "./useAnonAskCount";
+import { FIPI_RU } from "@/data/fipi-codifier-ru";
 
 type Msg = { id: string; role: "user" | "assistant"; content: string; loading?: boolean };
 
@@ -31,6 +32,25 @@ export function TutorChat() {
   // фокус в поле при загрузке
   React.useEffect(() => {
     inputRef.current?.focus();
+  }, []);
+
+  // если пришли с /tutor?topic=3.7.6 — автоматически задаём вопрос по теме
+  const autoAskedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (autoAskedRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("topic");
+    if (!code) return;
+    const topic = FIPI_RU.find((t) => t.code === code);
+    if (!topic) return;
+
+    autoAskedRef.current = true;
+    // Небольшая задержка, чтобы UI успел отрисоваться
+    const timer = setTimeout(() => {
+      void ask(`Объясни тему: ${topic.title}`);
+    }, 150);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function ask(question: string) {
