@@ -1,20 +1,9 @@
 /**
- * GET /api/tasks/floor?id=rus-orf&limit=5
+ * GET /api/tasks/floor?id=<floorId>&limit=N
  *
- * Возвращает N случайных тренировочных заданий для этажа
- * из таблицы Task. Задания предварительно сгенерированы
- * через scripts/generate-tasks.ts.
- *
- * Формат задания:
- * {
- *   id: string,
- *   title: string,
- *   question: string,   // формулировка
- *   options: string[],  // 4 варианта
- *   correct: number,    // индекс правильного (0-3)
- *   explanation: string,
- *   topicCode: string,
- * }
+ * Возвращает случайные тренировочные задания. Два режима:
+ *  1) floorId = код кодификатора ("3.7.6") — задания этой подтемы
+ *  2) floorId = legacy ("rus-orf") — задания всех подтем этого раздела
  */
 
 import { NextResponse } from "next/server";
@@ -23,44 +12,29 @@ import { FIPI_RU } from "@/data/fipi-codifier-ru";
 
 export const runtime = "nodejs";
 
-type StoredTaskBody = {
-  question: string;
-  options: string[];
-  correct: number;
-};
+type StoredTaskBody = { question: string; options: string[]; correct: number };
+
+const isFipiCode = (s: string) => /^\d+\.\d+/.test(s);
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const floorId = url.searchParams.get("id");
-  const limit = Math.min(20, Math.max(1, parseInt(url.searchParams.get("limit") ?? "5", 10)));
+  const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit") ?? "5", 10)));
 
   if (!floorId) {
     return NextResponse.json({ error: "id обязателен" }, { status: 400 });
   }
 
-  const codes = FIPI_RU.filter((t) => t.parent === floorId).map((t) => t.code);
+  let codes: string[];
+  if (isFipiCode(floorId)) {
+    codes = [floorId];
+  } else {
+    codes = FIPI_RU.filter((t) => t.parent === floorId).map((t) => t.code);
+  }
+
   if (codes.length === 0) {
     return NextResponse.json({ floorId, tasks: [] });
   }
-
-  // Достаём случайные N заданий по темам этажа.
-  // Postgres умеет ORDER BY random() — просто и достаточно быстро для сотен строк.
-  const rows = await prisma.$queryRaw<
-    {
-      id: string;
-      title: string;
-      body: string;
-      answer: string | null;
-      explanation: string | null;
-      topicId: string;
-    }[]
-  >`
-    SELECT id, title, body, answer, explanation, "topicId"
-    FROM "Task"
-    WHERE exam = 'ege' AND "topicId" = ANY(${codes})
-    ORDER BY random()
-    LIMIT ${limit}
-  `;
 
   type Row = {
     id: string;
@@ -70,6 +44,14 @@ export async function GET(req: Request) {
     explanation: string | null;
     topicId: string;
   };
+
+  const rows = await prisma.$queryRaw<Row[]>`
+    SELECT id, title, body, answer, explanation, "topicId"
+    FROM "Task"
+    WHERE exam = 'ege' AND "topicId" = ANY(${codes})
+    ORDER BY random()
+    LIMIT ${limit}
+  `;
 
   const tasks = rows.flatMap((r: Row) => {
     try {
@@ -84,7 +66,6 @@ export async function GET(req: Request) {
         topicCode: r.topicId,
       }];
     } catch {
-      // Битое задание — пропускаем
       return [];
     }
   });

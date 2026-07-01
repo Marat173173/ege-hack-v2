@@ -1,18 +1,14 @@
 /**
- * GET /api/knowledge/floor?id=rus-orf
+ * GET /api/knowledge/floor?id=<floorId>
  *
- * Возвращает все подтемы кодификатора ФИПИ, привязанные к этажу,
- * и их учебные материалы (правило/разбор/ошибки/термины) из БД.
+ * Возвращает материалы по этажу. Два режима:
+ *  1) floorId — код кодификатора ("3.7.6"): возвращает материалы этой подтемы.
+ *  2) floorId — legacy-имя ("rus-orf"): возвращает подтемы через parent (совместимость).
  *
- * Формат ответа:
+ * Формат ответа одинаковый:
  * {
- *   floorId: "rus-orf",
- *   subtopics: [
- *     { code: "3.7.1", title: "...", materials: [
- *         { id, kind, title, text }, ...
- *       ] },
- *     ...
- *   ]
+ *   floorId: string,
+ *   subtopics: [{ code, title, materials: [{id, kind, title, text}] }]
  * }
  */
 
@@ -21,8 +17,20 @@ import { prisma } from "@/lib/db/prisma";
 import { FIPI_RU } from "@/data/fipi-codifier-ru";
 
 export const runtime = "nodejs";
-// материалы не меняются часто — кэшируем на клиенте
 export const revalidate = 300;
+
+/** Порядок для показа: правило → разбор → ошибки → термины. */
+function kindOrder(kind: string): number {
+  switch (kind) {
+    case "rule": return 0;
+    case "example": return 1;
+    case "mistake": return 2;
+    case "definition": return 3;
+    default: return 99;
+  }
+}
+
+const isFipiCode = (s: string) => /^\d+\.\d+/.test(s);
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -32,21 +40,34 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "id обязателен" }, { status: 400 });
   }
 
-  // 1. Найти все подтемы, привязанные к этому этажу
-  const subtopics = FIPI_RU.filter((t) => t.parent === floorId);
-  if (subtopics.length === 0) {
+  // Определяем список кодов подтем
+  let codes: string[];
+  let subtopics: { code: string; title: string }[];
+
+  if (isFipiCode(floorId)) {
+    // Одна подтема
+    const topic = FIPI_RU.find((t) => t.code === floorId);
+    if (!topic) return NextResponse.json({ floorId, subtopics: [] });
+    codes = [floorId];
+    subtopics = [{ code: topic.code, title: topic.title }];
+  } else {
+    // legacy — по parent
+    const subs = FIPI_RU.filter((t) => t.parent === floorId);
+    codes = subs.map((t) => t.code);
+    subtopics = subs.map((t) => ({ code: t.code, title: t.title }));
+  }
+
+  if (codes.length === 0) {
     return NextResponse.json({ floorId, subtopics: [] });
   }
 
-  const codes = subtopics.map((t) => t.code);
-
-  // 2. Достать все чанки для этих подтем разом (без embedding — большие поля не тащим)
+  // Загружаем чанки
   const chunks = await prisma.knowledgeChunk.findMany({
     where: { subject: "russian", topicCode: { in: codes } },
     select: { id: true, kind: true, title: true, text: true, topicCode: true },
   });
 
-  // 3. Сгруппировать чанки по подтеме
+  // Группируем по коду
   const byCode = new Map<string, typeof chunks>();
   for (const c of chunks) {
     if (!c.topicCode) continue;
@@ -65,15 +86,4 @@ export async function GET(req: Request) {
   }));
 
   return NextResponse.json({ floorId, subtopics: result });
-}
-
-/** Порядок для показа: правило → разбор → ошибки → термины */
-function kindOrder(kind: string): number {
-  switch (kind) {
-    case "rule": return 0;
-    case "example": return 1;
-    case "mistake": return 2;
-    case "definition": return 3;
-    default: return 99;
-  }
 }
