@@ -1,157 +1,28 @@
 "use client";
 
 import React from "react";
-import { Dumbbell, GraduationCap, BookText, ExternalLink, ListChecks, AlertTriangle } from "lucide-react";
+import {
+  Dumbbell,
+  BookOpen,
+  Loader2,
+  AlertTriangle,
+  Lightbulb,
+  Scale,
+  MessageCircle,
+} from "lucide-react";
 import { Modal } from "@/components/ui/modal";
-import { CarouselDeck, type DeckCard } from "@/components/ui/carousel-deck";
-import { getHandbook } from "@/data/handbooks";
 import type { Floor } from "@/data/types";
 
-/** Фолбэк-карточки урока, если у темы нет своих lessons. */
-function fallbackLessons(floor: Floor): DeckCard[] {
-  return [
-    {
-      badge: "Что это",
-      title: floor.name,
-      body: `Тема «${floor.name}» (${floor.tag}). Здесь собрана теория, типичные ошибки и примеры из формата ЕГЭ. Освоение этажа поднимает Шпиль, стабильность — сужает диапазон прогноза.`,
-      accent: floor.hue,
-    },
-    {
-      badge: "Как оценивают",
-      title: "Что приносит балл",
-      body: "Эксперт смотрит на конкретные признаки ответа. Покажем, какие из них ты уже даёшь, а какие теряешь — и как закрыть пробел минимальными шагами.",
-      accent: floor.hue,
-    },
-    {
-      badge: "Следующий шаг",
-      title: "Закрепить практикой",
-      body: "Лучший способ укрепить этаж — прорешать несколько заданий этого типа с мгновенной проверкой. Жми «Тренировать тему».",
-      accent: floor.hue,
-    },
-  ];
-}
+type Material = { id: string; kind: string; title: string; text: string };
+type Subtopic = { code: string; title: string; materials: Material[] };
+type ApiResp = { floorId: string; subtopics: Subtopic[] };
 
-/** Справочник темы — авторская справка + ссылки на ФИПИ. */
-function Handbook({
-  floor,
-  hb,
-}: {
-  floor: Floor;
-  hb: ReturnType<typeof getHandbook>;
-}) {
-  if (!hb) {
-    return (
-      <div className="hb-empty">
-        Справочник для темы «{floor.name}» готовится. Пока загляни в карточки урока
-        и официальный банк ФИПИ.
-        <a className="hb-link" href="https://ege.fipi.ru/bank/" target="_blank" rel="noreferrer">
-          <ExternalLink size={13} /> Открытый банк ФИПИ
-        </a>
-      </div>
-    );
-  }
-  return (
-    <div className="hb">
-      <p className="hb-summary">{hb.summary}</p>
-
-      <div className="hb-sec">
-        <div className="hb-h"><ListChecks size={14} /> Правила и формулы</div>
-        <ul className="hb-list">
-          {hb.rules.map((r, i) => (
-            <li key={i}>{r}</li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="hb-sec">
-        <div className="hb-h hb-warn"><AlertTriangle size={14} /> Частые ошибки</div>
-        <ul className="hb-list">
-          {hb.mistakes.map((m, i) => (
-            <li key={i}>{m}</li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="hb-sec">
-        <div className="hb-h"><BookText size={14} /> Источники</div>
-        <div className="hb-links">
-          {hb.links.map((l, i) => (
-            <a key={i} className="hb-link" href={l.url} target="_blank" rel="noreferrer">
-              <ExternalLink size={13} /> {l.label} <span className="hb-src">· {l.source}</span>
-            </a>
-          ))}
-        </div>
-      </div>
-
-      <p className="hb-note">
-        Справки написаны командой ЕГЭ-ХАК своими словами. Полные материалы — у
-        первоисточника по ссылкам.
-      </p>
-
-      <style jsx>{`
-        .hb { color: rgb(var(--mid)); }
-        .hb-summary {
-          margin: 2px 0 14px;
-          font-size: 13.5px;
-          line-height: 1.55;
-          color: rgb(var(--hi));
-        }
-        .hb-sec {
-          margin-bottom: 14px;
-          border: 1px solid rgb(var(--line) / 0.4);
-          border-radius: 12px;
-          background: rgb(var(--glass-hi) / 0.02);
-          padding: 12px 14px;
-        }
-        .hb-h {
-          display: flex;
-          align-items: center;
-          gap: 7px;
-          font-family: var(--mono);
-          font-size: 10px;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: rgb(var(--accent));
-          margin-bottom: 8px;
-        }
-        .hb-warn { color: #ffc65b; }
-        .hb-list { margin: 0; padding-left: 18px; }
-        .hb-list li {
-          font-size: 13px;
-          line-height: 1.5;
-          color: rgb(var(--mid));
-          margin-bottom: 5px;
-        }
-        .hb-links { display: flex; flex-direction: column; gap: 8px; }
-        .hb-link {
-          display: inline-flex;
-          align-items: center;
-          gap: 7px;
-          font-size: 13px;
-          color: rgb(var(--accent));
-          text-decoration: none;
-        }
-        .hb-link:hover { text-decoration: underline; }
-        .hb-src { color: rgb(var(--lo)); }
-        .hb-note {
-          margin: 6px 0 0;
-          font-size: 11px;
-          line-height: 1.5;
-          color: rgb(var(--lo));
-        }
-        .hb-empty {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          font-size: 13px;
-          line-height: 1.5;
-          color: rgb(var(--mid));
-          padding: 8px 0;
-        }
-      `}</style>
-    </div>
-  );
-}
+const KIND_META: Record<string, { label: string; Icon: typeof BookOpen; color: string }> = {
+  rule: { label: "Правило", Icon: BookOpen, color: "rgb(var(--accent))" },
+  example: { label: "Разбор", Icon: Lightbulb, color: "#5BE3B0" },
+  mistake: { label: "Типичные ошибки", Icon: AlertTriangle, color: "#FFC65B" },
+  definition: { label: "Термины", Icon: Scale, color: "#B4A0FF" },
+};
 
 export function LessonModal({
   floor,
@@ -164,18 +35,34 @@ export function LessonModal({
   onClose: () => void;
   onTrain: (id: string) => void;
 }) {
-  // хуки до раннего return
-  const [tab, setTab] = React.useState<"lesson" | "handbook">("lesson");
+  const [data, setData] = React.useState<Subtopic[] | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [activeCode, setActiveCode] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
   React.useEffect(() => {
-    if (open) setTab("lesson");
+    if (!open || !floor) return;
+    setLoading(true);
+    setError(null);
+    setData(null);
+    setActiveCode(null);
+
+    fetch(`/api/knowledge/floor?id=${encodeURIComponent(floor.id)}`)
+      .then((r) => r.json())
+      .then((json: ApiResp) => {
+        const subs = json.subtopics ?? [];
+        setData(subs);
+        setActiveCode(subs[0]?.code ?? null);
+      })
+      .catch(() => setError("Не удалось загрузить материалы. Попробуй ещё раз."))
+      .finally(() => setLoading(false));
   }, [open, floor?.id]);
 
   if (!floor) return null;
 
-  const cards: DeckCard[] = (floor.lessons && floor.lessons.length
-    ? floor.lessons.map((l) => ({ ...l, accent: floor.hue }))
-    : fallbackLessons(floor));
-  const hb = getHandbook(floor.id);
+  const active = data?.find((s) => s.code === activeCode) ?? null;
+  const hasContent = !loading && data && data.length > 0;
+  const empty = !loading && data && data.length === 0;
 
   return (
     <Modal
@@ -183,40 +70,91 @@ export function LessonModal({
       onClose={onClose}
       label={`Детальный урок · ${floor.tag}`}
       title={floor.name}
-      maxWidth="46rem"
+      maxWidth="52rem"
     >
-      {/* вкладки: Урок / Справочник */}
-      <div className="lesson-tabs">
-        {([
-          ["lesson", "Урок", GraduationCap],
-          ["handbook", "Справочник", BookText],
-        ] as const).map(([k, label, Ico]) => (
-          <button
-            key={k}
-            onClick={() => setTab(k)}
-            className={"lesson-tab" + (tab === k ? " on" : "")}
-            style={{ ["--c" as string]: floor.hue }}
-          >
-            <Ico size={14} /> {label}
-          </button>
-        ))}
-      </div>
+      {loading && (
+        <div className="lm-loading">
+          <Loader2 size={16} className="animate-spin" />
+          Загружаю материалы по кодификатору ФИПИ…
+        </div>
+      )}
 
-      {tab === "lesson" ? (
-        <>
-          <div className="lesson-hint">
-            <GraduationCap size={15} style={{ color: floor.hue }} />
-            Листай карточки темы — теория, разбор оценивания и примеры. ← / → или
-            стрелки.
+      {error && (
+        <div className="lm-error">
+          <AlertTriangle size={15} /> {error}
+        </div>
+      )}
+
+      {empty && (
+        <div className="lm-empty">
+          <BookOpen size={18} style={{ color: floor.hue }} />
+          <div>
+            <b>Материалы этой темы готовятся.</b>
+            <p>Задай вопрос репетитору — он объяснит суть и разберёт задание.</p>
           </div>
-          <CarouselDeck cards={cards} />
+        </div>
+      )}
+
+      {hasContent && data && (
+        <>
+          <div className="lm-subtabs">
+            <span className="lm-hint-label">Программа ФИПИ 2026 · {data.length} тем</span>
+            <div className="lm-subtabs-scroll">
+              {data.map((s) => (
+                <button
+                  key={s.code}
+                  onClick={() => setActiveCode(s.code)}
+                  className={"lm-subtab" + (s.code === activeCode ? " on" : "")}
+                  style={{ ["--c" as string]: floor.hue }}
+                  title={s.title}
+                >
+                  <span className="lm-subtab-code">{s.code}</span>
+                  <span className="lm-subtab-title">{s.title}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {active && (
+            <div className="lm-active">
+              <div className="lm-active-head">
+                <span className="lm-active-code">{active.code}</span>
+                <h3 className="lm-active-title">{active.title}</h3>
+                <a
+                  href={`/tutor?topic=${encodeURIComponent(active.code)}&subject=russian`}
+                  className="lm-ask"
+                >
+                  <MessageCircle size={13} /> Спросить репетитора
+                </a>
+              </div>
+
+              {active.materials.length === 0 ? (
+                <div className="lm-material lm-material-empty">
+                  Материалы этой подтемы генерируются. Задай вопрос репетитору — он объяснит.
+                </div>
+              ) : (
+                <div className="lm-materials">
+                  {active.materials.map((m) => {
+                    const meta = KIND_META[m.kind] ?? KIND_META.rule;
+                    return (
+                      <div key={m.id} className="lm-material">
+                        <div className="lm-material-h" style={{ color: meta.color }}>
+                          <meta.Icon size={13} /> {meta.label}
+                        </div>
+                        <h4 className="lm-material-title">{m.title}</h4>
+                        <p className="lm-material-body">{m.text}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </>
-      ) : (
-        <Handbook floor={floor} hb={hb} />
       )}
 
       <button
-        className="lesson-train"
+        className="lm-train"
         onClick={() => onTrain(floor.id)}
         style={{ ["--c" as string]: floor.hue }}
       >
@@ -225,58 +163,102 @@ export function LessonModal({
       </button>
 
       <style jsx>{`
-        .lesson-tabs {
-          display: flex;
-          gap: 6px;
-          margin: 0 0 14px;
+        .lm-loading, .lm-error, .lm-empty {
+          display: flex; align-items: center; gap: 10px;
+          padding: 20px 4px; font-size: 13.5px; color: rgb(var(--mid));
+        }
+        .lm-error { color: #ffc65b; }
+        .lm-empty { padding: 24px 4px; align-items: flex-start; }
+        .lm-empty p {
+          margin: 4px 0 0; font-size: 12.5px; line-height: 1.5; color: rgb(var(--lo));
+        }
+        .lm-empty b { display: block; margin-bottom: 3px; color: rgb(var(--hi)); }
+
+        .lm-subtabs {
+          margin: 0 0 14px; padding-bottom: 12px;
           border-bottom: 1px solid rgb(var(--line) / 0.4);
-          padding-bottom: 10px;
         }
-        .lesson-tab {
-          display: flex;
-          align-items: center;
-          gap: 6px;
+        .lm-hint-label {
+          display: block; margin-bottom: 8px;
+          font-family: var(--mono); font-size: 9.5px;
+          letter-spacing: 0.14em; text-transform: uppercase; color: rgb(var(--lo));
+        }
+        .lm-subtabs-scroll { display: flex; flex-wrap: wrap; gap: 6px; }
+        .lm-subtab {
+          display: inline-flex; align-items: center; gap: 6px;
+          max-width: 100%; padding: 6px 10px;
           border: 1px solid rgb(var(--line) / 0.4);
-          background: transparent;
-          color: rgb(var(--mid));
-          border-radius: 10px;
-          padding: 7px 12px;
-          font-size: 12.5px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: background 0.2s, color 0.2s, border-color 0.2s;
+          background: transparent; color: rgb(var(--mid));
+          border-radius: 8px; font-size: 11.5px; cursor: pointer;
+          transition: background 0.15s, color 0.15s, border-color 0.15s;
         }
-        .lesson-tab.on {
-          color: rgb(var(--bg-0));
-          background: var(--c);
-          border-color: var(--c);
+        .lm-subtab:hover { color: rgb(var(--hi)); border-color: rgb(var(--line)); }
+        .lm-subtab.on {
+          color: rgb(var(--bg-0)); background: var(--c); border-color: var(--c);
         }
-        .lesson-hint {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin: 2px 0 16px;
-          font-size: 12.5px;
-          color: rgb(var(--mid));
+        .lm-subtab-code { font-family: var(--mono); font-size: 10px; opacity: 0.8; }
+        .lm-subtab-title {
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px;
         }
-        .lesson-train {
-          margin-top: 18px;
-          width: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 13px;
-          border: 0;
-          border-radius: 14px;
-          font-size: 14px;
-          font-weight: 700;
-          color: #0a0e18;
-          cursor: pointer;
-          background: linear-gradient(180deg, var(--c), color-mix(in srgb, var(--c) 70%, #000));
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4),
-            0 10px 26px -12px var(--c);
+
+        .lm-active { margin-bottom: 18px; }
+        .lm-active-head {
+          display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+          margin-bottom: 12px; padding-bottom: 12px;
+          border-bottom: 1px solid rgb(var(--line) / 0.3);
         }
+        .lm-active-code {
+          font-family: var(--mono); font-size: 11px;
+          padding: 3px 7px; border-radius: 6px;
+          background: rgb(var(--glass-hi) / 0.06); color: rgb(var(--lo));
+        }
+        .lm-active-title {
+          flex: 1; min-width: 200px; margin: 0;
+          font-family: var(--serif); font-size: 16px; line-height: 1.3; color: rgb(var(--hi));
+        }
+        .lm-ask {
+          display: inline-flex; align-items: center; gap: 5px;
+          padding: 6px 10px;
+          border: 1px solid rgb(var(--accent) / 0.35);
+          background: rgb(var(--accent) / 0.08);
+          color: rgb(var(--accent));
+          border-radius: 8px; font-size: 12px; text-decoration: none;
+        }
+        .lm-ask:hover { background: rgb(var(--accent) / 0.14); }
+
+        .lm-materials { display: grid; gap: 12px; }
+        .lm-material {
+          border: 1px solid rgb(var(--line) / 0.4);
+          background: rgb(var(--glass-hi) / 0.02);
+          border-radius: 12px; padding: 14px 16px;
+        }
+        .lm-material-empty {
+          color: rgb(var(--mid)); font-size: 13px;
+          text-align: center; padding: 20px;
+        }
+        .lm-material-h {
+          display: flex; align-items: center; gap: 6px;
+          font-family: var(--mono); font-size: 10px;
+          letter-spacing: 0.14em; text-transform: uppercase;
+          margin-bottom: 8px;
+        }
+        .lm-material-title {
+          margin: 0 0 8px; font-size: 14.5px; font-weight: 600;
+          color: rgb(var(--hi)); line-height: 1.35;
+        }
+        .lm-material-body {
+          margin: 0; font-size: 13.5px; line-height: 1.55;
+          color: rgb(var(--mid)); white-space: pre-wrap;
+        }
+
+        .lm-train {
+          display: flex; align-items: center; justify-content: center; gap: 8px;
+          width: 100%; margin-top: 8px; padding: 14px;
+          border: none; background: var(--c); color: rgb(var(--bg-0));
+          font-weight: 700; font-size: 14px; border-radius: 14px;
+          cursor: pointer; transition: filter 0.15s;
+        }
+        .lm-train:hover { filter: brightness(1.08); }
       `}</style>
     </Modal>
   );

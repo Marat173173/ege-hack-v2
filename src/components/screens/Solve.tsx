@@ -12,36 +12,12 @@ import { useToast } from "./Toast";
  * Экран решения — намеренно ПЛОСКИЙ и БЫСТРЫЙ, без 3D.
  * Ничто не должно тормозить цикл практики (требование производительности).
  * Тестовая часть проверяется мгновенно алгоритмом (бесплатно).
+ *
+ * Задания тянутся с /api/tasks/floor — они сгенерированы через Claude
+ * по кодификатору ФИПИ и лежат в таблице Task.
  */
 
-// иллюстративный набор тестовых заданий
-const TASKS: Record<string, { q: string; options: string[]; correct: number; hint: string }[]> = {
-  default: [
-    {
-      q: "В каком слове верно выделена буква, обозначающая ударный гласный звук?",
-      options: ["звонИт", "тОрты", "красивЕе", "договОр"],
-      correct: 0,
-      hint: "«ЗвонИт» — ударение всегда на последний слог в личных формах глагола.",
-    },
-    {
-      q: "Укажите вариант, где НЕ со словом пишется слитно.",
-      options: ["(не)законченный вовремя", "(не)брежно", "(не)кто иной", "далеко (не)лёгкий"],
-      correct: 1,
-      hint: "«Небрежно» — наречие без противопоставления и зависимых слов пишется слитно.",
-    },
-    {
-      q: "В каком предложении нужна одна запятая? (знаки не расставлены)",
-      options: [
-        "Шёл дождь и дул ветер",
-        "Налетел ветер и сорвал листья",
-        "Мокрый снег падал и таял",
-        "Гром гремел а молнии сверкали",
-      ],
-      correct: 3,
-      hint: "Перед противительным союзом «а» в сложносочинённом предложении ставится запятая.",
-    },
-  ],
-};
+type Task = { q: string; options: string[]; correct: number; hint: string; topicCode: string };
 
 export function Solve() {
   const setScreen = useApp((s) => s.setScreen);
@@ -52,7 +28,9 @@ export function Solve() {
   const combo = useApp((s) => s.game.combo);
   const toast = useToast();
 
-  const tasks = TASKS.default;
+  const [tasksList, setTasksList] = React.useState<Task[]>([]);
+  const [loadingTasks, setLoadingTasks] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
   const [idx, setIdx] = React.useState(0);
   const [picked, setPicked] = React.useState<number | null>(null);
   const [score, setScore] = React.useState(0);
@@ -67,11 +45,41 @@ export function Solve() {
     return () => clearInterval(t);
   }, []);
 
+  // Загружаем задания по этажу
+  React.useEffect(() => {
+    if (!floor) return;
+    setLoadingTasks(true);
+    setLoadError(null);
+    setIdx(0);
+    setPicked(null);
+    setScore(0);
+
+    fetch(`/api/tasks/floor?id=${encodeURIComponent(floor.id)}&limit=8`)
+      .then((r) => r.json())
+      .then((json: {
+        tasks: { question: string; options: string[]; correct: number; explanation: string; topicCode: string }[];
+      }) => {
+        const mapped: Task[] = (json.tasks ?? []).map((t) => ({
+          q: t.question,
+          options: t.options,
+          correct: t.correct,
+          hint: t.explanation,
+          topicCode: t.topicCode,
+        }));
+        setTasksList(mapped);
+        if (mapped.length === 0) {
+          setLoadError("По этой теме задания ещё готовятся. Загляни позже.");
+        }
+      })
+      .catch(() => setLoadError("Не удалось загрузить задания. Проверь интернет."))
+      .finally(() => setLoadingTasks(false));
+  }, [floor?.id]);
+
   // чистим таймер вспышки при размонтировании
   React.useEffect(() => () => clearTimeout(flashTimer.current), []);
 
-  const done = idx >= tasks.length;
-  const task = tasks[idx];
+  const done = idx >= tasksList.length;
+  const task = tasksList[idx];
   const answered = picked !== null;
   const correct = !!task && picked === task.correct;
 
@@ -98,17 +106,17 @@ export function Solve() {
     flashTimer.current = setTimeout(() => setFlash(null), 600);
   }
   function nextTask() {
-    if (idx < tasks.length - 1) {
+    if (idx < tasksList.length - 1) {
       setIdx((i) => i + 1);
       setPicked(null);
       setLastGain(null);
     } else {
-      setIdx(tasks.length); // done
+      setIdx(tasksList.length); // done
     }
   }
   function finish() {
     if (floor) {
-      const gained = Math.round((score / tasks.length) * 18);
+      const gained = Math.round((score / tasksList.length) * 18);
       bump(floor.id, gained, Math.round(gained * 0.6));
       gainXp(XP.trainComplete);
       toast(`Тренировка засчитана: <b>+${gained}</b> к освоению «${floor.name}».`);
@@ -145,11 +153,7 @@ export function Solve() {
       {/* top bar — плоский, лёгкий */}
       <header
         className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-bg-0/85 px-4 py-3 backdrop-blur-md"
-        style={{
-          paddingTop: "max(0.75rem, env(safe-area-inset-top))",
-          paddingLeft: "max(1rem, env(safe-area-inset-left))",
-          paddingRight: "max(1rem, env(safe-area-inset-right))",
-        }}
+        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
       >
         <button
           onClick={() => setScreen("spire")}
@@ -188,19 +192,44 @@ export function Solve() {
       <div className="h-1 w-full bg-white/5">
         <motion.div
           className="h-full bg-accent"
-          animate={{ width: `${(Math.min(idx, tasks.length) / tasks.length) * 100}%` }}
+          animate={{ width: `${(Math.min(idx, tasksList.length) / tasksList.length) * 100}%` }}
         />
       </div>
 
-      <main
-        className="mx-auto max-w-[640px] px-4 py-6 pb-[max(2rem,env(safe-area-inset-bottom))] md:py-8"
-        style={{
-          paddingLeft: "max(1rem, env(safe-area-inset-left))",
-          paddingRight: "max(1rem, env(safe-area-inset-right))",
-        }}
-      >
+      <main className="mx-auto max-w-[640px] px-4 py-6 pb-[max(2rem,env(safe-area-inset-bottom))] md:py-8">
         <AnimatePresence mode="wait">
-          {!done ? (
+          {loadingTasks ? (
+            <motion.div
+              key="loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex items-center gap-2 py-16 text-[13.5px] text-mid"
+            >
+              <Sparkles size={16} className="animate-pulse text-accent" />
+              Подбираю задания из базы ФИПИ…
+            </motion.div>
+          ) : loadError ? (
+            <motion.div
+              key="error"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mt-8 rounded-2xl border border-line bg-white/[0.02] p-8 text-center"
+            >
+              <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-xl bg-white/5">
+                <Sparkles size={20} className="text-lo" />
+              </div>
+              <h3 className="mb-2 font-serif text-lg text-hi">{loadError}</h3>
+              <p className="mb-6 text-[13px] leading-snug text-mid">
+                Пока это готовится — задай вопрос ИИ-репетитору напрямую.
+              </p>
+              <button
+                onClick={() => setScreen("spire")}
+                className="rounded-xl border border-line px-5 py-2.5 text-[13px] text-hi transition-colors hover:bg-white/5"
+              >
+                Вернуться к Шпилю
+              </button>
+            </motion.div>
+          ) : !done ? (
             <motion.div
               key={idx}
               initial={{ opacity: 0, y: 16 }}
@@ -208,7 +237,7 @@ export function Solve() {
               exit={{ opacity: 0, y: -16 }}
             >
               <div className="mb-1 font-mono text-[11px] uppercase tracking-wide text-lo">
-                Задание {idx + 1} / {tasks.length}
+                Задание {idx + 1} / {tasksList.length}
               </div>
               <h2 className="m-0 mb-6 text-xl font-medium leading-snug text-hi">{task.q}</h2>
 
@@ -299,7 +328,7 @@ export function Solve() {
                       onClick={nextTask}
                       className="glossy-btn mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold"
                     >
-                      {idx < tasks.length - 1 ? "Следующее" : "Завершить"} <Send size={15} />
+                      {idx < tasksList.length - 1 ? "Следующее" : "Завершить"} <Send size={15} />
                     </button>
                   </motion.div>
                 )}
@@ -317,7 +346,7 @@ export function Solve() {
               </div>
               <h2 className="m-0 font-serif text-2xl text-hi">Срез завершён</h2>
               <p className="m-0 mt-2 text-[14px] text-mid">
-                Верно <b className="text-hi">{score}</b> из {tasks.length}. Этаж «{floor?.name}»
+                Верно <b className="text-hi">{score}</b> из {tasksList.length}. Этаж «{floor?.name}»
                 подрос — диапазон прогноза станет точнее.
               </p>
               <div className="mt-5 flex flex-col gap-2">
