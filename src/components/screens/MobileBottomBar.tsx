@@ -145,9 +145,14 @@ export function MobileBottomBar() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -16, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 360, damping: 30 }}
-            className="liquid-glass fixed left-2 z-[46] w-[min(320px,calc(100vw-16px))] origin-top-left overflow-hidden rounded-[26px] p-3"
+            className="liquid-glass thin-scroll fixed z-[46] w-[min(320px,calc(100vw-16px))] origin-top-left rounded-[26px] p-3"
             style={{
-              top: "calc(env(safe-area-inset-top) + 60px)",
+              // ниже кнопки-бургера (top 8 + высота 46) с гарантированным зазором,
+              // чтобы крестик не наезжал на меню; учитываем боковой вырез в landscape
+              top: "calc(env(safe-area-inset-top) + 64px)",
+              left: "max(0.5rem, env(safe-area-inset-left))",
+              maxHeight: "calc(100dvh - env(safe-area-inset-top) - 84px)",
+              overflowY: "auto",
               // плотный фон, чтобы пункты читались поверх сцены
               background:
                 "linear-gradient(180deg, rgb(var(--glass-hi) / 0.08), transparent 45%), rgb(var(--bg-1) / 0.97)",
@@ -173,9 +178,10 @@ export function MobileBottomBar() {
         aria-label={open ? "Закрыть меню" : "Открыть меню"}
         aria-expanded={open}
         whileTap={{ scale: 0.9 }}
-        className="liquid-glass fixed left-2 z-[47] grid place-items-center rounded-full"
+        className="liquid-glass fixed z-[47] grid place-items-center rounded-full"
         style={{
           top: "calc(env(safe-area-inset-top) + 8px)",
+          left: "max(0.5rem, env(safe-area-inset-left))",
           width: 46,
           height: 46,
           background:

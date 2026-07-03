@@ -267,13 +267,13 @@ export function Solve() {
                           ? "#5BE3B0"
                           : isWrong
                           ? "#FF5C6E"
-                          : "rgba(132,156,200,.18)",
+                          : "rgb(var(--line) / var(--line-2a))",
                         background: isCorrect
                           ? "rgba(91,227,176,.10)"
                           : isWrong
                           ? "rgba(255,92,110,.10)"
-                          : "rgba(255,255,255,.02)",
-                        color: "#EAF0FC",
+                          : "rgb(var(--hi) / 0.035)",
+                        color: "rgb(var(--hi))",
                         boxShadow: isCorrect ? "0 0 24px -6px rgba(91,227,176,.5)" : "none",
                       }}
                     >
@@ -291,7 +291,7 @@ export function Solve() {
                             exit={{ opacity: 0, y: -52 }}
                             transition={{ duration: 0.7 }}
                             className="pointer-events-none absolute right-3 top-1 flex items-center gap-0.5 font-mono text-[13px] font-bold"
-                            style={{ color: correct ? "#5BE3B0" : "#9FB0CF" }}
+                            style={{ color: correct ? "#5BE3B0" : "rgb(var(--mid))" }}
                           >
                             <Zap size={12} /> +{lastGain.amount}
                           </motion.div>

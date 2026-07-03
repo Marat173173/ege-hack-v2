@@ -76,14 +76,17 @@ export const CarouselDeck = ({
   onIndexChange,
 }: CarouselDeckProps) => {
   const colorBadge = colors.badge ?? "rgb(var(--accent))";
-  const colorTitle = colors.title ?? "#EAF0FC";
-  const colorBody = colors.body ?? "#9FB0CF";
-  const colorMeta = colors.meta ?? "#647597";
-  const colorArrowBg = colors.arrowBackground ?? "rgba(255,255,255,.05)";
-  const colorArrowFg = colors.arrowForeground ?? "#EAF0FC";
+  // цвета берём из токенов темы, иначе в светлой теме текст «исчезает»
+  const colorTitle = colors.title ?? "rgb(var(--hi))";
+  const colorBody = colors.body ?? "rgb(var(--mid))";
+  const colorMeta = colors.meta ?? "rgb(var(--lo))";
+  const colorArrowBg = colors.arrowBackground ?? "rgb(var(--glass-hi) / 0.06)";
+  const colorArrowFg = colors.arrowForeground ?? "rgb(var(--hi))";
   const colorArrowHoverBg = colors.arrowHoverBackground ?? "rgb(var(--accent))";
-  const cardFace = colors.cardFace ?? "rgba(13,20,34,.66)";
-  const cardBorder = colors.cardBorder ?? "rgba(255,255,255,.12)";
+  const cardFace =
+    colors.cardFace ??
+    "linear-gradient(180deg, rgb(var(--glass-hi) / 0.05), transparent 45%), rgb(var(--bg-2))";
+  const cardBorder = colors.cardBorder ?? "rgb(var(--line) / var(--line-2a))";
 
   const fsTitle = fontSizes.title ?? "1.15rem";
   const fsBody = fontSizes.body ?? "0.98rem";
@@ -454,7 +457,7 @@ export const CarouselDeck = ({
           font-size: 10px;
           letter-spacing: 0.14em;
           text-transform: uppercase;
-          color: #647597;
+          color: rgb(var(--lo));
         }
         .deck-arrows {
           display: flex;
@@ -468,7 +471,7 @@ export const CarouselDeck = ({
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          border: 1px solid rgba(255, 255, 255, 0.12);
+          border: 1px solid rgb(var(--line) / var(--line-a));
           transition: background-color 0.3s;
         }
       `}</style>
