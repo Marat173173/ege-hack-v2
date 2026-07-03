@@ -89,15 +89,15 @@ export function CritiqueModal({
         .ct-sum {
           margin: 2px 0 16px;
           padding: 12px 14px;
-          border: 1px solid rgba(132, 156, 200, 0.16);
+          border: 1px solid rgb(var(--line) / var(--line-a));
           border-radius: 12px;
-          background: rgba(255, 255, 255, 0.02);
+          background: rgb(var(--hi) / 0.035);
           font-size: 12.5px;
           line-height: 1.5;
-          color: #9fb0cf;
+          color: rgb(var(--mid));
         }
         .ct-sum :global(b) {
-          color: #eaf0fc;
+          color: rgb(var(--hi));
         }
         .ct-apply {
           margin-top: 18px;

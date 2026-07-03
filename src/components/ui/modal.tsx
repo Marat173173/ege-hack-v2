@@ -45,7 +45,7 @@ export const Modal = ({
   draggable = true,
 }: ModalProps) => {
   const isMobile = useIsMobile();
-  const scrim = colors.scrim ?? "rgb(var(--scrim) / 0.42)";
+  const scrim = colors.scrim ?? "rgb(var(--scrim) / 0.58)";
   const border = colors.border ?? "rgb(var(--glass-hi) / var(--glass-border-a))";
   const closeFg = colors.closeFg ?? "rgb(var(--mid))";
   const closeHoverBg = colors.closeHoverBg ?? "rgb(var(--glass-hi) / 0.1)";
@@ -169,7 +169,7 @@ export const Modal = ({
           width: isMobile ? 44 : 38,
           height: isMobile ? 44 : 38,
           borderRadius: 12,
-          border: "1px solid rgba(132,156,200,0.18)",
+          border: "1px solid rgb(var(--line) / var(--line-2a))",
           background: "transparent",
           cursor: "pointer",
           color: closeFg,

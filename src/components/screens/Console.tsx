@@ -70,7 +70,7 @@ export function Console() {
           >
             <div
               className="text-[22px] font-bold leading-none"
-              style={{ color: sc.aS < 55 ? "#FF5C6E" : sc.aS >= 72 ? "#5BE3B0" : "#EAF0FC" }}
+              style={{ color: sc.aS < 55 ? "#FF5C6E" : sc.aS >= 72 ? "#5BE3B0" : "rgb(var(--hi))" }}
             >
               {sc.aS}
               <small className="ml-0.5 text-[13px] font-normal opacity-60">%</small>

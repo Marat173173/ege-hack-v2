@@ -50,15 +50,15 @@ export function Onboarding() {
                 <div
                   className="grid h-6 w-6 place-items-center rounded-full font-mono text-[11px] font-bold transition-colors"
                   style={{
-                    background: i <= step ? "rgb(var(--accent))" : "rgba(255,255,255,.06)",
-                    color: i <= step ? "#0a0e18" : "#647597",
+                    background: i <= step ? "rgb(var(--accent))" : "rgb(var(--hi) / 0.06)",
+                    color: i <= step ? "#0a0e18" : "rgb(var(--lo))",
                   }}
                 >
                   {i < step ? <Check size={13} /> : i + 1}
                 </div>
                 <span
                   className="hidden text-[11px] hud-label sm:block"
-                  style={{ color: i <= step ? "#EAF0FC" : "#647597" }}
+                  style={{ color: i <= step ? "rgb(var(--hi))" : "rgb(var(--lo))" }}
                 >
                   {s}
                 </span>
