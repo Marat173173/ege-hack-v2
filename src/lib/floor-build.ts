@@ -52,6 +52,51 @@ export function lockMap(floors: Floor[]): boolean[] {
 }
 
 /**
+ * Сколько закрытых этажей показываем «вперёд» сверх всех открытых.
+ * Остальные скрыты и проявляются по мере готовности нижних — башня не
+ * превращается в бесконечный небоскрёб из 63 этажей.
+ */
+export const REVEAL_LOOKAHEAD = 3;
+
+/** Индекс первого закрытого этажа (или floors.length, если открыты все). */
+export function firstLockedIndex(floors: Floor[]): number {
+  const i = lockMap(floors).findIndex(Boolean);
+  return i === -1 ? floors.length : i;
+}
+
+/** Индекс самого верхнего ОТКРЫТОГО этажа (текущий «фронтир» прогресса). */
+export function highestOpenIndex(floors: Floor[]): number {
+  const locks = lockMap(floors);
+  let idx = 0;
+  for (let i = 0; i < floors.length; i++) if (!locks[i]) idx = i;
+  return idx;
+}
+
+/**
+ * Сколько этажей показывать: все открытые + REVEAL_LOOKAHEAD закрытых «превью».
+ * Всегда ≥ 1. Открытые этажи — это непрерывный префикс снизу (гейт по средней
+ * готовности), поэтому видимый набор — это тоже префикс floors[0..revealCount).
+ */
+export function revealCount(floors: Floor[], lookahead = REVEAL_LOOKAHEAD): number {
+  if (floors.length === 0) return 0;
+  // отсчёт от САМОГО ВЕРХНЕГО открытого этажа + запас: так в видимый набор
+  // гарантированно попадают ВСЕ открытые этажи, даже если гейт по средней
+  // готовности когда-нибудь перестанет быть строго префиксным (устойчивость к
+  // неоднородному/деградирующему прогрессу). Для текущих данных (открытые —
+  // непрерывный префикс) это эквивалентно firstLockedIndex + lookahead.
+  return Math.min(floors.length, highestOpenIndex(floors) + 1 + lookahead);
+}
+
+/**
+ * Видимый префикс этажей (открытые + closed-preview). Так как это slice от 0,
+ * индекс элемента здесь совпадает с индексом в полном floors — поэтому
+ * lockMap(full)[i] применим напрямую.
+ */
+export function visibleFloors(floors: Floor[], lookahead = REVEAL_LOOKAHEAD): Floor[] {
+  return floors.slice(0, revealCount(floors, lookahead));
+}
+
+/**
  * Общая готовность к ЕГЭ по предмету (0..100) — высота всего Шпиля как индикатор.
  * Босс (вторая часть) весит больше.
  */
