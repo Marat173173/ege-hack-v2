@@ -350,17 +350,19 @@ export function Floor({
           <div
             style={{
               pointerEvents: "none",
-              width: 22,
-              height: 22,
+              width: 24,
+              height: 24,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              background: "rgba(13,20,34,.8)",
-              border: "1px solid rgba(255,255,255,.18)",
-              color: "#9FB0CF",
+              background: "rgb(var(--bg-1) / 0.92)",
+              border: "1px solid rgb(var(--line) / 0.5)",
+              color: "rgb(var(--mid))",
               borderRadius: "50%",
               fontSize: 12,
               lineHeight: 1,
+              backdropFilter: "blur(6px)",
+              boxShadow: "0 4px 14px -6px rgba(0,0,0,0.55)",
             }}
           >
             🔒
@@ -385,15 +387,17 @@ export function Floor({
               whiteSpace: "normal",
               maxWidth: "min(60vw, 280px)",
               width: "max-content",
-              background: "rgba(13,20,34,.82)",
-              backdropFilter: "blur(6px)",
-              border: "1px solid rgba(255,255,255,.14)",
-              color: "#EAF0FC",
+              background: "rgb(var(--bg-1) / 0.92)",
+              backdropFilter: "blur(8px)",
+              border: "1px solid rgb(var(--line) / 0.45)",
+              borderLeft: `3px solid ${floor.hue}`,
+              color: "rgb(var(--hi))",
               borderRadius: 10,
-              padding: "5px 10px",
+              padding: "5px 10px 5px 9px",
               fontSize: 12,
               lineHeight: 1.3,
               fontFamily: "ui-monospace, monospace",
+              boxShadow: "0 6px 20px -8px rgba(0,0,0,0.55)",
             }}
           >
             {floor.name}

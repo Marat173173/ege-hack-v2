@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { detectTier, type Tier } from "@/lib/device-tier";
-import { isLocked, unlockGap } from "@/lib/floor-build";
+import { isLocked, unlockGap, highestOpenIndex } from "@/lib/floor-build";
 import { PixelBloom, type BloomTrigger } from "@/components/spire/PixelBloom";
 import { useIsMobile } from "@/lib/use-media";
 import { TopBar } from "./TopBar";
@@ -59,13 +59,16 @@ export function SpireScreen() {
     return () => mq.removeEventListener?.("change", onChange);
   }, [ensureDay]);
 
-  // авто-выбор боссового этажа: на ДЕСКТОПЕ подсвечивает в правом рейле (ненавязчиво).
+  // авто-выбор ФРОНТИРА (верхний открытый этаж) на ДЕСКТОПЕ — подсвечивает в
+  // правом рейле «где ты сейчас». Раньше выбирался последний этаж (босс), но с
+  // гейтингом он скрыт, поэтому берём самый верхний открытый.
   // На МОБИЛЕ это открывало bottom-sheet поверх сцены до первого тапа — поэтому
   // на телефоне авто-выбор пропускаем, пусть юзер сам тапнет этаж.
   React.useEffect(() => {
     if (isMobile) return;
-    const last = subject.floors[subject.floors.length - 1];
-    const id = setTimeout(() => selectFloor(last.id, { zoom: false }), 700);
+    const frontier = subject.floors[highestOpenIndex(subject.floors)] ?? subject.floors[0];
+    if (!frontier) return;
+    const id = setTimeout(() => selectFloor(frontier.id, { zoom: false }), 700);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subjectKey, isMobile]);

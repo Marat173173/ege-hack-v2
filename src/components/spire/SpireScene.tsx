@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Floor } from "./Floor";
 import { bodyHeight, GAP } from "./geometry";
-import { lockMap, floorReadiness } from "@/lib/floor-build";
+import { lockMap, floorReadiness, visibleFloors } from "@/lib/floor-build";
 import { floorState } from "@/lib/floor-state";
 import type { Subject } from "@/data/types";
 import type { Tier } from "@/lib/device-tier";
@@ -58,15 +58,34 @@ interface Layout {
   total: number;
 }
 
-function buildLayout(subject: Subject): Layout {
+function buildLayout(floors: Subject["floors"]): Layout {
   let y = 0;
-  const metas = subject.floors.map((floor, idx) => {
+  const metas = floors.map((floor, idx) => {
     const bH = bodyHeight(floor.geom);
     const cy = y + bH / 2;
     y += bH + GAP;
     return { floor, baseY: cy, phase: idx * 1.7 };
   });
-  return { metas, total: y - GAP };
+  return { metas, total: Math.max(0, y - GAP) };
+}
+
+/**
+ * Обзорная раскладка камеры под высоту ВИДИМОЙ башни.
+ *  - Невысокая башня (≤ WINDOW) кадрируется ЦЕЛИКОМ: дистанция считается из
+ *    вертикального FOV (46°, полу-угол 23° → dist ≳ H·1.18), с запасом.
+ *  - Высокая башня не вмещается легибельно целиком → кадрируем верхнее «окно»
+ *    (там фронтир, «где ты сейчас»), а низ добирается панорамой (targetT ∈ [0,total]).
+ * Раньше dist=total·0.8+6.5 (cap 28) рос слишком медленно и обрезал башни выше
+ * ~20 этажей — теперь наклон 1.35 реально вмещает кадр.
+ */
+function overviewFor(total: number) {
+  const WINDOW = 22; // макс. высота кадра, при которой этажи ещё читаемы
+  const framedH = Math.min(total, WINDOW);
+  const dist = Math.min(40, Math.max(9, framedH * 1.35 + 4.5));
+  const lift = Math.min(3.2, Math.max(1, framedH * 0.13));
+  // короткая — по центру; высокая — центр кадра у вершины (фронтир)
+  const target = total <= WINDOW ? total * 0.5 : total - framedH * 0.5;
+  return { target, dist, lift };
 }
 
 /* ——— Камера: плавный наезд/отъезд, idle-spin, фокус-димминг ——— */
@@ -99,7 +118,7 @@ function CameraRig({
   }>;
 }) {
   const { camera } = useThree();
-  const overviewTarget = layout.total * 0.5;
+  const ov = overviewFor(layout.total);
 
   // при смене фокуса задаём целевые значения камеры
   React.useEffect(() => {
@@ -112,22 +131,25 @@ function CameraRig({
         c.liftT = 0.55;
       }
     } else {
-      c.targetT = overviewTarget;
-      c.distT = 13.5;
-      c.liftT = 1.5;
+      c.targetT = ov.target;
+      c.distT = ov.dist;
+      c.liftT = ov.lift;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusId, layout]);
 
-  // первичная раскладка камеры под новый предмет
+  // первичная раскладка камеры под новый предмет / изменившуюся высоту башни
   React.useEffect(() => {
     const c = controls.current;
-    c.target = overviewTarget;
-    c.targetT = overviewTarget;
-    c.dist = 13.5;
-    c.distT = 13.5;
-    c.lift = 1.5;
-    c.liftT = 1.5;
+    // если сейчас в фокусе — не сбиваем наезд, только обновим цель обзора
+    if (!focusId) {
+      c.target = ov.target;
+      c.targetT = ov.target;
+      c.dist = ov.dist;
+      c.distT = ov.dist;
+      c.lift = ov.lift;
+      c.liftT = ov.lift;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout.total]);
 
@@ -464,9 +486,13 @@ function SpireContent({
   tier,
   onPick,
 }: SpireProps) {
-  const layout = React.useMemo(() => buildLayout(subject), [subject]);
+  // видимые этажи: все открытые + 3 закрытых «превью». Остальное скрыто и
+  // проявляется по мере готовности — башня не растёт в бесконечный небоскрёб.
+  const visible = React.useMemo(() => visibleFloors(subject.floors), [subject.floors]);
+  const layout = React.useMemo(() => buildLayout(visible), [visible]);
 
-  // карта блокировок (гейтинг «строится по готовности») — один проход по этажам
+  // карта блокировок по ПОЛНОМУ списку (индекс видимого == индекс полного,
+  // т.к. видимые — префикс) — один проход по этажам
   const locks = React.useMemo(() => lockMap(subject.floors), [subject.floors]);
 
   // «самый слабый открытый» этаж (не заблокирован, ещё не монолит) — пульс
@@ -500,14 +526,15 @@ function SpireContent({
   const selectorRef = React.useRef<THREE.Mesh>(null);
   const selectorYRef = React.useRef(0);
   const yawRef = React.useRef(0.5);
-  const controls = React.useRef({
-    dist: 13.5,
-    distT: 13.5,
-    target: layout.total * 0.5,
-    targetT: layout.total * 0.5,
-    lift: 1.5,
-    liftT: 1.5,
-  });
+  const controls = React.useRef(
+    (() => {
+      const o = overviewFor(layout.total);
+      return { dist: o.dist, distT: o.dist, target: o.target, targetT: o.target, lift: o.lift, liftT: o.lift };
+    })()
+  );
+  // актуальная высота башни для клампа панорамирования (без ре-биндинга слушателей)
+  const totalRef = React.useRef(layout.total);
+  totalRef.current = layout.total;
   const { gl } = useThree();
 
   // селектор следует за выбранным этажом
@@ -556,7 +583,8 @@ function SpireContent({
       if (dragging) {
         yawRef.current -= dx * 0.006;
         const c = controls.current;
-        c.targetT = Math.max(0.2, Math.min(c.targetT - dy * 0.012, 14));
+        // панорама по высоте — в пределах реальной высоты видимой башни
+        c.targetT = Math.max(0.2, Math.min(c.targetT - dy * 0.012, Math.max(1, totalRef.current)));
         down = { x: e.clientX, y: e.clientY };
       }
     };
@@ -568,7 +596,7 @@ function SpireContent({
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const c = controls.current;
-      c.distT = Math.max(5, Math.min(18, c.distT + e.deltaY * 0.012));
+      c.distT = Math.max(5, Math.min(40, c.distT + e.deltaY * 0.012));
     };
     let pinch: number | null = null;
     const onTouchMove = (e: TouchEvent) => {
@@ -579,7 +607,7 @@ function SpireContent({
         );
         if (pinch) {
           const c = controls.current;
-          c.distT = Math.max(5, Math.min(18, c.distT - (d - pinch) * 0.03));
+          c.distT = Math.max(5, Math.min(40, c.distT - (d - pinch) * 0.03));
         }
         pinch = d;
       }
