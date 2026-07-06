@@ -2,11 +2,12 @@
 
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Check, X, Sparkles, Timer, Camera, Send, Flame, Zap } from "lucide-react";
+import { ArrowLeft, Check, X, Sparkles, Timer, Send, Flame, Zap } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { XP, comboMultiplier } from "@/lib/gamification";
 import { playCorrect, playWrong, playCombo } from "@/lib/sound";
 import { useToast } from "./Toast";
+import { ResultsScreen, type MistakeItem } from "./ResultsScreen";
 
 /**
  * Экран решения — намеренно ПЛОСКИЙ и БЫСТРЫЙ, без 3D.
@@ -35,6 +36,8 @@ export function Solve() {
   const [picked, setPicked] = React.useState<number | null>(null);
   const [score, setScore] = React.useState(0);
   const [seconds, setSeconds] = React.useState(0);
+  const [sessionXp, setSessionXp] = React.useState(0); // XP, набранный именно за этот срез
+  const [mistakes, setMistakes] = React.useState<MistakeItem[]>([]); // для «разбора ошибок»
   const [flash, setFlash] = React.useState<"correct" | "wrong" | null>(null);
   const [lastGain, setLastGain] = React.useState<{ id: number; amount: number } | null>(null);
   const gainSeq = React.useRef(0);
@@ -53,6 +56,8 @@ export function Solve() {
     setIdx(0);
     setPicked(null);
     setScore(0);
+    setSessionXp(0);
+    setMistakes([]);
 
     fetch(`/api/tasks/floor?id=${encodeURIComponent(floor.id)}&limit=8`)
       .then((r) => r.json())
@@ -92,12 +97,24 @@ export function Solve() {
       const mult = comboMultiplier(combo + 1);
       const amount = Math.round(XP.correct * mult);
       gainXp(XP.correct, { correct: true });
+      setSessionXp((x) => x + amount);
       setLastGain({ id: ++gainSeq.current, amount });
       setFlash("correct");
       playCorrect();
       if (combo + 1 >= 2) playCombo(combo + 1);
     } else {
       gainXp(XP.wrong, { resetCombo: true });
+      setSessionXp((x) => x + XP.wrong);
+      setMistakes((ms) => [
+        ...ms,
+        {
+          code: task.topicCode,
+          question: task.q,
+          your: task.options[i],
+          answer: task.options[task.correct],
+          hint: task.hint,
+        },
+      ]);
       setLastGain({ id: ++gainSeq.current, amount: XP.wrong });
       setFlash("wrong");
       playWrong();
@@ -127,6 +144,26 @@ export function Solve() {
 
   const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
   const ss = String(seconds % 60).padStart(2, "0");
+
+  // Срез пройден → экран «Итоги тренировки» вместо инлайнового done-блока.
+  if (done && !loadingTasks && !loadError && tasksList.length > 0) {
+    return (
+      <ResultsScreen
+        floorName={floor?.name ?? "Тренировка"}
+        correct={score}
+        total={tasksList.length}
+        seconds={seconds}
+        xpGained={sessionXp}
+        mistakes={mistakes}
+        // scoreRange={{ low, high }}  // TODO: подключить из score-model.ts (floorReadiness → балл)
+        onNext={finish}
+        onBack={() => setScreen("spire")}
+        onAskTutor={(m) => {
+          window.location.href = `/tutor?topic=${encodeURIComponent(m.code)}&subject=russian`;
+        }}
+      />
+    );
+  }
 
   return (
     <div className="relative min-h-[100dvh] w-full overflow-hidden bg-bg-0">
@@ -334,36 +371,7 @@ export function Solve() {
                 )}
               </AnimatePresence>
             </motion.div>
-          ) : (
-            <motion.div
-              key="done"
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-center"
-            >
-              <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl border border-accent/40 bg-accent/10">
-                <Check size={32} className="text-accent" />
-              </div>
-              <h2 className="m-0 font-serif text-2xl text-hi">Срез завершён</h2>
-              <p className="m-0 mt-2 text-[14px] text-mid">
-                Верно <b className="text-hi">{score}</b> из {tasksList.length}. Этаж «{floor?.name}»
-                подрос — диапазон прогноза станет точнее.
-              </p>
-              <div className="mt-5 flex flex-col gap-2">
-                <button
-                  onClick={finish}
-                  className="glossy-btn flex items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold"
-                >
-                  Учесть и вернуться к Шпилю <ArrowLeft size={15} />
-                </button>
-                {floor?.boss && (
-                  <div className="mt-1 flex items-center justify-center gap-2 text-[12px] text-lo">
-                    <Camera size={13} /> Развёрнутый ответ можно загрузить фото или текстом
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
+          ) : null}
         </AnimatePresence>
       </main>
     </div>
