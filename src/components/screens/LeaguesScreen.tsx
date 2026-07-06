@@ -124,7 +124,7 @@ export function LeaguesScreen() {
           >
             <Shield size={32} />
           </div>
-          <div className="hud-label text-[10px] text-lo">Текущая лига</div>
+          <div className="hud-label text-[11px] text-mid">Текущая лига</div>
           <h2 className="m-0 mt-1 font-serif text-2xl text-hi">{league.name} · лига</h2>
           <div className="mt-1 flex items-center justify-center gap-2 text-[13px] text-mid">
             <ChevronUp size={15} className="text-stable" /> Ты на <b className="text-hi">{myRank}-м</b> месте · {game.xp} XP
