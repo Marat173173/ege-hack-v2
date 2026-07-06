@@ -117,7 +117,7 @@ export function PathScreen() {
   );
 
   return (
-    <div className="thin-scroll absolute inset-0 overflow-y-auto pb-[160px] pt-[76px] md:pb-8 md:pt-[92px]">
+    <div className="thin-scroll pb-nav absolute inset-0 overflow-y-auto pt-[76px] md:pt-[92px]">
       {/* заголовок */}
       <div className="mx-auto mb-5 max-w-[560px] px-4">
         <div className="relative overflow-hidden rounded-2xl border border-accent/40 bg-accent/[0.08] px-5 py-4">

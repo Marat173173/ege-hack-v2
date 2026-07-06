@@ -33,11 +33,7 @@ export function TutorFAB() {
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
       aria-label="Открыть ИИ-репетитора"
-      className="fixed bottom-5 right-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-[rgb(var(--accent))] text-[rgb(var(--bg-0))] shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.05)] sm:bottom-6 sm:right-6"
-      style={{
-        // безопасная зона для устройств с домашней полосой (iPhone)
-        bottom: "max(1.25rem, env(safe-area-inset-bottom))",
-      }}
+      className="fab-safe focus-ring fixed right-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-[rgb(var(--accent))] text-[rgb(var(--bg-0))] shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.05)] sm:right-6"
     >
       <Sparkles className="h-6 w-6" />
       <span className="sr-only">Открыть ИИ-репетитора</span>

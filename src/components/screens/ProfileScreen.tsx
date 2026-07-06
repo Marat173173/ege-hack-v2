@@ -91,7 +91,7 @@ export function ProfileScreen() {
         <div className="w-[70px]" />
       </header>
 
-      <main className="mx-auto max-w-[760px] space-y-4 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <main className="pb-nav mx-auto max-w-[760px] space-y-4 px-4 py-6">
         {/* ——— шапка профиля ——— */}
         <LiquidGlass sheen className="relative p-5 md:p-6">
           <div className="flex items-center gap-4">

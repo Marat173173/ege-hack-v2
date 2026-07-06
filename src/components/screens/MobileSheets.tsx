@@ -92,8 +92,8 @@ function ProgressContent() {
         </div>
       </div>
 
-      <div className="hud-label mb-2 text-[9px] text-lo">Дрожащие зоны — нажми, чтобы укрепить</div>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="hud-label mb-2 text-[11px] text-mid">Дрожащие зоны — нажми, чтобы укрепить</div>
+      <div className="flex flex-wrap gap-2">
         {weak.length ? (
           weak.map((f) => (
             <button
@@ -102,15 +102,23 @@ function ProgressContent() {
                 setSheet(null);
                 selectFloor(f.id, { zoom: profile.viewMode === "spire" });
               }}
-              className="flex items-center gap-1.5 rounded-lg border border-line bg-[rgb(var(--glass-hi)/0.03)] px-3 py-2 text-[12px] text-mid"
+              className="focus-ring flex min-h-[44px] items-center gap-2 rounded-lg border border-line bg-[rgb(var(--glass-hi)/0.03)] px-3 py-2 text-[12.5px] text-mid"
             >
-              <Zap size={12} className="text-danger" /> {f.name}
+              <Zap size={13} className="text-danger" /> {f.name}
             </button>
           ))
         ) : (
-          <span className="text-[12px] text-lo">Все зоны устойчивы 🎯</span>
+          <span className="text-[12.5px] text-mid">Все зоны устойчивы 🎯</span>
         )}
       </div>
+
+      {/* быстрый переход к выбору урока (раньше жил в бургер-облаке) */}
+      <button
+        onClick={() => setSheet("lessonPicker")}
+        className="focus-ring mt-4 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-accent/40 bg-accent/[0.08] px-4 text-[13px] font-semibold text-hi"
+      >
+        <BookOpen size={15} className="text-accent" /> Выбрать урок
+      </button>
     </div>
   );
 }
