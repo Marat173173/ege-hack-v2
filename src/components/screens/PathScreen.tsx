@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Lock, Check, Star, BookOpen, Crown, MessageCircle, Sparkles, ChevronDown } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { floorState, STATE_META } from "@/lib/floor-state";
@@ -47,6 +47,7 @@ export function PathScreen() {
   const openSolve = useApp((s) => s.openSolve);
   const selectFloor = useApp((s) => s.selectFloor);
   const toast = useToast();
+  const reduce = useReducedMotion();
 
   const floors = subject.floors;
 
@@ -241,15 +242,15 @@ export function PathScreen() {
                       <motion.div
                         initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="absolute -top-6 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[8.5px] uppercase tracking-wide"
+                        className="absolute -top-6 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide"
                         style={{ background: nodeHue, color: "#0a0e18" }}
                       >
                         ты здесь
                       </motion.div>
                     )}
 
-                    {/* пульс-кольцо у текущей темы */}
-                    {isCurrent && (
+                    {/* пульс-кольцо у текущей темы (гаснет при reduced-motion) */}
+                    {isCurrent && !reduce && (
                       <motion.span
                         aria-hidden="true"
                         className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 rounded-full"
@@ -263,7 +264,7 @@ export function PathScreen() {
                       onClick={() => tap(f, i)}
                       whileHover={!locked ? { scale: 1.06, y: -2 } : { rotate: [0, -4, 4, 0] }}
                       whileTap={!locked ? { scale: 0.94 } : undefined}
-                      className="relative mx-auto grid h-[58px] w-[58px] place-items-center rounded-full"
+                      className="focus-ring relative mx-auto grid h-[58px] w-[58px] place-items-center rounded-full"
                       style={{
                         background: locked ? "rgb(var(--glass-hi) / 0.05)" : faceColor,
                         border: locked
@@ -281,9 +282,9 @@ export function PathScreen() {
 
                     {/* Подпись */}
                     <div className="mx-auto mt-1.5 max-w-[150px] text-center">
-                      <div className="font-mono text-[9px] text-lo">{f.id}</div>
+                      <div className="font-mono text-[11px] text-mid">{f.id}</div>
                       <div
-                        className="mt-0.5 text-[10.5px] leading-tight text-mid"
+                        className="mt-0.5 text-[12.5px] leading-tight text-mid"
                         style={{
                           display: "-webkit-box",
                           WebkitLineClamp: 2,
@@ -295,7 +296,7 @@ export function PathScreen() {
                       </div>
                       {!locked && (
                         <div
-                          className="mt-0.5 font-mono text-[8.5px]"
+                          className="mt-0.5 font-mono text-[10px]"
                           style={{ color: stateMeta.color }}
                         >
                           {stateMeta.label.split(" ")[0]}
@@ -303,15 +304,18 @@ export function PathScreen() {
                       )}
                     </div>
 
-                    {/* Кнопка «Спросить репетитора» */}
+                    {/* Кнопка «Спросить репетитора» — 44px тап-зона, 24px визуал */}
                     {!locked && isFipiCode(f.id) && (
                       <a
                         href={`/tutor?topic=${encodeURIComponent(f.id)}&subject=russian`}
                         onClick={(e) => e.stopPropagation()}
-                        className="absolute -right-3 -top-1 grid h-6 w-6 place-items-center rounded-full border border-line bg-bg-0 text-mid transition-colors hover:text-accent"
+                        aria-label={`Спросить репетитора по теме ${f.id}`}
                         title="Спросить репетитора"
+                        className="focus-ring absolute right-0 top-0 grid h-11 w-11 -translate-y-1/3 translate-x-1/3 place-items-center rounded-full"
                       >
-                        <MessageCircle size={11} />
+                        <span className="grid h-6 w-6 place-items-center rounded-full border border-line bg-bg-0 text-mid transition-colors hover:text-accent">
+                          <MessageCircle size={11} />
+                        </span>
                       </a>
                     )}
                   </div>

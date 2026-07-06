@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, Check, X, Sparkles, Timer, Send, Flame, Zap } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { XP, comboMultiplier } from "@/lib/gamification";
@@ -28,6 +28,7 @@ export function Solve() {
   const resetCombo = useApp((s) => s.resetCombo);
   const combo = useApp((s) => s.game.combo);
   const toast = useToast();
+  const reduce = useReducedMotion();
 
   const [tasksList, setTasksList] = React.useState<Task[]>([]);
   const [loadingTasks, setLoadingTasks] = React.useState(true);
@@ -169,7 +170,7 @@ export function Solve() {
     <div className="relative min-h-[100dvh] w-full overflow-hidden bg-bg-0">
       {/* экранная вспышка — зелёная (верно) / мягкая красная (мимо) */}
       <AnimatePresence>
-        {flash && (
+        {flash && !reduce && (
           <motion.div
             key={flash + gainSeq.current}
             initial={{ opacity: 0 }}
@@ -291,14 +292,16 @@ export function Solve() {
                       whileHover={!answered ? { scale: 1.01 } : undefined}
                       whileTap={!answered ? { scale: 0.985 } : undefined}
                       animate={
-                        isPicked && isCorrect
+                        reduce
+                          ? { scale: 1, x: 0 }
+                          : isPicked && isCorrect
                           ? { scale: [1, 1.04, 1] }
                           : isWrong
                           ? { x: [0, -8, 8, -6, 6, 0] }
                           : { scale: 1, x: 0 }
                       }
                       transition={{ duration: isWrong ? 0.4 : 0.35 }}
-                      className="relative flex w-full items-center justify-between rounded-xl border px-4 py-3.5 text-left text-[15px] disabled:cursor-default"
+                      className="focus-ring relative flex min-h-[52px] w-full items-center justify-between rounded-xl border px-4 py-3.5 text-left text-[15px] disabled:cursor-default"
                       style={{
                         borderColor: isCorrect
                           ? "#5BE3B0"
@@ -363,7 +366,7 @@ export function Solve() {
                     </div>
                     <button
                       onClick={nextTask}
-                      className="glossy-btn mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold"
+                      className="glossy-btn focus-ring mt-4 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-bold"
                     >
                       {idx < tasksList.length - 1 ? "Следующее" : "Завершить"} <Send size={15} />
                     </button>
