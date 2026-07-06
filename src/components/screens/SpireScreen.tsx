@@ -194,7 +194,8 @@ export function SpireScreen() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             onClick={closeInspector}
-            className="liquid-glass fixed left-1/2 top-16 z-[5] flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-hi"
+            style={{ top: "calc(env(safe-area-inset-top) + 56px)" }}
+            className="liquid-glass focus-ring fixed left-1/2 z-[5] flex min-h-[44px] -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-hi"
           >
             <ArrowLeft size={13} /> к Шпилю
           </motion.button>

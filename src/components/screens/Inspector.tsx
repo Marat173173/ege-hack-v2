@@ -61,13 +61,13 @@ function ParentReport() {
   return (
     <div>
       <div className="mb-3">
-        <span className="hud-label text-[9px] text-lo">отчёт для родителя</span>
+        <span className="hud-label text-[11px] text-mid">отчёт для родителя</span>
         <h3 className="m-0 mt-1 font-serif text-xl text-hi">{subject.name}</h3>
       </div>
       <div className="space-y-2">
         {cards.map(([k, v], i) => (
           <div key={i} className="rounded-xl border border-line bg-white/[0.02] p-3">
-            <div className="hud-label text-[9px] text-lo">{k}</div>
+            <div className="hud-label text-[11px] text-mid">{k}</div>
             <div className="mt-1 text-[15px] font-medium text-hi">{v}</div>
           </div>
         ))}
@@ -101,12 +101,12 @@ export function Inspector() {
                   <button
                     onClick={closeInspector}
                     aria-label="Закрыть"
-                    className="absolute right-0 top-0 grid h-7 w-7 place-items-center rounded-lg border border-line text-mid transition-colors hover:text-hi"
+                    className="focus-ring absolute right-0 top-0 grid h-11 w-11 place-items-center rounded-lg border border-line text-mid transition-colors hover:text-hi"
                   >
-                    <X size={15} />
+                    <X size={18} />
                   </button>
-                  <span className="hud-label text-[9px] text-lo">{floor.tag}</span>
-                  <h3 className="m-0 mb-2 mt-1 pr-8 font-serif text-xl leading-tight text-hi">
+                  <span className="hud-label text-[11px] text-mid">{floor.tag}</span>
+                  <h3 className="m-0 mb-2 mt-1 pr-12 font-serif text-xl leading-tight text-hi">
                     {floor.name}
                   </h3>
                   <StateChip state={floorState(floor)} />

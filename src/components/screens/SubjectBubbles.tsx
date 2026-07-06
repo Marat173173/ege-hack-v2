@@ -63,7 +63,7 @@ export function SubjectBubbles() {
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="liquid-glass flex items-center gap-2 rounded-full px-3 py-2 text-[13px] font-semibold text-hi transition-transform active:scale-95 md:px-3.5"
+        className="liquid-glass focus-ring flex items-center gap-2 rounded-full px-3 py-2 text-[13px] font-semibold text-hi transition-transform active:scale-95 md:px-3.5"
         title="Сменить предмет"
       >
         <ActiveIcon size={17} className="text-accent" />
@@ -97,7 +97,7 @@ export function SubjectBubbles() {
               style={{ top: "max(18px, env(safe-area-inset-top))" }}
             >
               <div className="font-hand text-[22px] text-accent">Выбери предмет</div>
-              <div className="hud-label mt-1 text-[9px] text-lo">тапни по пузырю</div>
+              <div className="hud-label mt-1 text-[11px] text-mid">тапни по пузырю</div>
             </motion.div>
 
             {liveCards.map((c, i) => (
@@ -163,10 +163,12 @@ function Bubble({
   const top = Math.min(88, Math.max(14, baseTop + jy));
 
   // амплитуды и длительность дрейфа — у каждого свои, отсюда «хаос»
-  const driftX = 26 + rand(index + 3) * 40; // px
-  const driftY = 22 + rand(index + 4) * 38;
+  // амплитуды дрейфа СИЛЬНО уменьшены: пузырь «дышит» ±5px, но НЕ убегает
+  // из-под пальца — тап-мишень стабильна (mobile-ux фикс)
+  const driftX = 4 + rand(index + 3) * 3; // ~4..7px
+  const driftY = 4 + rand(index + 4) * 3;
   const dur = 11 + rand(index + 5) * 9; // 11..20с — медленно
-  const rot = 4 + rand(index + 6) * 6;
+  const rot = 1 + rand(index + 6) * 1.2;
   const dir = rand(index + 7) > 0.5 ? 1 : -1;
 
   const size = showActive ? 104 : 92;
@@ -177,7 +179,7 @@ function Bubble({
         e.stopPropagation();
         onPick();
       }}
-      className="absolute grid place-items-center rounded-full"
+      className="focus-ring absolute grid place-items-center rounded-full"
       style={{
         left: `${left}%`,
         top: `${top}%`,
@@ -223,11 +225,11 @@ function Bubble({
       <span className="flex flex-col items-center gap-1 px-1 text-center">
         <Icon size={26} style={{ color: `rgb(${accent})` }} />
         <span className="text-[11px] font-bold leading-tight text-hi">{title}</span>
-        <span className="hud-label text-[7.5px] text-lo">{topics} тем</span>
+        <span className="font-mono text-[11px] text-mid">{topics} тем</span>
       </span>
       {showActive && (
         <span
-          className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full px-2 py-[1px] text-[7px] font-bold"
+          className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full px-2 py-[1px] text-[10px] font-bold"
           style={{ background: `rgb(${accent})`, color: "rgb(var(--bg-0))" }}
         >
           сейчас
