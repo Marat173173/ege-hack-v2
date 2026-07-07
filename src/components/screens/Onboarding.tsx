@@ -106,13 +106,13 @@ export function Onboarding() {
                         }}
                       >
                         {!live && (
-                          <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-md border border-line bg-bg-0/60 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-lo">
+                          <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-md border border-line bg-bg-0/60 px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-wide text-mid">
                             <Lock size={9} /> скоро
                           </span>
                         )}
                         <Icon size={26} className={active ? "text-accent" : "text-mid"} />
                         <div className="mt-2 text-[14px] font-semibold text-hi">{c.short}</div>
-                        <div className="mt-0.5 font-mono text-[10px] text-lo">
+                        <div className="mt-0.5 font-mono text-[11px] text-mid">
                           {c.topics} тем · {c.exam.toUpperCase()}
                         </div>
                       </button>
@@ -126,7 +126,7 @@ export function Onboarding() {
               <>
                 <div className="mb-2 flex items-center gap-2 text-accent">
                   <Target size={18} />
-                  <span className="hud-label text-[10px]">Целевой балл</span>
+                  <span className="hud-label text-[11px]">Целевой балл</span>
                 </div>
                 <h2 className="m-0 mb-1 font-serif text-2xl text-hi">Куда целимся?</h2>
                 <p className="m-0 mb-6 text-[13px] text-mid">
@@ -144,10 +144,10 @@ export function Onboarding() {
                   onChange={(e) => setGoal(+e.target.value)}
                   // touch-action:none — драг ползунка не скроллит страницу;
                   // py увеличивает зону захвата на тач
-                  className="w-full py-2 accent-[rgb(var(--accent))]"
+                  className="w-full py-3.5 accent-[rgb(var(--accent))]"
                   style={{ touchAction: "none" }}
                 />
-                <div className="mt-1 flex justify-between font-mono text-[10px] text-lo">
+                <div className="mt-1 flex justify-between font-mono text-[11px] text-mid">
                   <span>порог</span>
                   <span>бюджет</span>
                   <span>топ-вуз</span>
@@ -159,7 +159,7 @@ export function Onboarding() {
               <>
                 <div className="mb-2 flex items-center gap-2 text-accent">
                   <ListChecks size={18} />
-                  <span className="hud-label text-[10px]">Входной срез</span>
+                  <span className="hud-label text-[11px]">Входной срез</span>
                 </div>
                 <h2 className="m-0 mb-1 font-serif text-2xl text-hi">10–15 заданий</h2>
                 <p className="m-0 mb-5 text-[13px] leading-relaxed text-mid">

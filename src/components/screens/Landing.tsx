@@ -90,7 +90,7 @@ export function Landing() {
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-5 font-mono text-[11px] uppercase tracking-[0.34em] text-lo"
+          className="mb-5 font-mono text-[12px] uppercase tracking-[0.25em] text-mid"
         >
           ЕГЭ · ОГЭ · <b className="font-bold text-accent">честный чит-код</b>
         </motion.div>
