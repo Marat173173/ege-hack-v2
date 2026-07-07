@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import { AnimatePresence, motion, useDragControls, type PanInfo } from "framer-motion";
-import { X, Dumbbell, Timer, ScanLine, Sparkles, GraduationCap } from "lucide-react";
+import { X, Dumbbell, Timer, ScanLine, Sparkles, GraduationCap, FlaskConical } from "lucide-react";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
+import { TutorFAB } from "@/components/tutor/TutorFAB";
 import { useApp } from "@/lib/store";
 import { useIsMobile } from "@/lib/use-media";
 import { floorState, STATE_META } from "@/lib/floor-state";
@@ -61,13 +62,13 @@ function ParentReport() {
   return (
     <div>
       <div className="mb-3">
-        <span className="hud-label text-[9px] text-lo">отчёт для родителя</span>
+        <span className="hud-label text-[11px] text-mid">отчёт для родителя</span>
         <h3 className="m-0 mt-1 font-serif text-xl text-hi">{subject.name}</h3>
       </div>
       <div className="space-y-2">
         {cards.map(([k, v], i) => (
           <div key={i} className="rounded-xl border border-line bg-white/[0.02] p-3">
-            <div className="hud-label text-[9px] text-lo">{k}</div>
+            <div className="hud-label text-[11px] text-mid">{k}</div>
             <div className="mt-1 text-[15px] font-medium text-hi">{v}</div>
           </div>
         ))}
@@ -83,6 +84,7 @@ export function Inspector() {
   const closeInspector = useApp((s) => s.closeInspector);
   const openSolve = useApp((s) => s.openSolve);
   const openModal = useApp((s) => s.openModal);
+  const bump = useApp((s) => s.bump);
   const isMobile = useIsMobile();
   const dragControls = useDragControls();
 
@@ -101,12 +103,12 @@ export function Inspector() {
                   <button
                     onClick={closeInspector}
                     aria-label="Закрыть"
-                    className="absolute right-0 top-0 grid h-7 w-7 place-items-center rounded-lg border border-line text-mid transition-colors hover:text-hi"
+                    className="focus-ring absolute right-0 top-0 grid h-11 w-11 place-items-center rounded-lg border border-line text-mid transition-colors hover:text-hi"
                   >
-                    <X size={15} />
+                    <X size={18} />
                   </button>
-                  <span className="hud-label text-[9px] text-lo">{floor.tag}</span>
-                  <h3 className="m-0 mb-2 mt-1 pr-8 font-serif text-xl leading-tight text-hi">
+                  <span className="hud-label text-[11px] text-mid">{floor.tag}</span>
+                  <h3 className="m-0 mb-2 mt-1 pr-12 font-serif text-xl leading-tight text-hi">
                     {floor.name}
                   </h3>
                   <StateChip state={floorState(floor)} />
@@ -176,6 +178,19 @@ export function Inspector() {
                   </div>
                 )}
 
+                {/* ⚠️ ВРЕМЕННО (тест Шпиля): мгновенно засчитывает модуль
+                    пройденным (prog/stab → 100, этаж твердеет, гейтинг
+                    открывает следующие). Удалить перед продом. */}
+                <button
+                  onClick={() => {
+                    bump(floor.id, 100, 100);
+                    closeInspector();
+                  }}
+                  className="focus-ring mt-3 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-dashed border-warn/50 bg-warn/[0.06] px-4 py-3 text-[12.5px] font-semibold text-warn transition-colors hover:bg-warn/[0.12]"
+                >
+                  <FlaskConical size={15} /> Прошёл модуль (тест)
+                </button>
+
                 {/* Подтемы кодификатора ФИПИ 2026 — открывают ИИ-репетитора по конкретной теме */}
                 <FipiSubtopics floorId={floor.id} />
       </>
@@ -201,7 +216,7 @@ export function Inspector() {
             }}
           >
             <motion.div
-              className="w-full"
+              className="relative w-full"
               drag="y"
               dragControls={dragControls}
               dragListener={false}
@@ -213,6 +228,8 @@ export function Inspector() {
               exit={{ y: "100%" }}
               transition={{ type: "spring", stiffness: 320, damping: 34 }}
             >
+              {/* ИИ-репетитор — над окошком модуля, с фильтром открытой темы */}
+              {mode !== "parent" && floor && <TutorFAB topic={floor.id} />}
               <div
                 className="relative z-[1] overflow-hidden rounded-t-2xl border border-b-0 border-[rgb(var(--glass-hi)/var(--glass-border-a))]"
                 style={{

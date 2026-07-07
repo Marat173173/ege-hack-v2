@@ -180,16 +180,16 @@ export function LessonModal({
         }
         .lm-hint-label {
           display: block; margin-bottom: 8px;
-          font-family: var(--mono); font-size: 9.5px;
-          letter-spacing: 0.14em; text-transform: uppercase; color: rgb(var(--lo));
+          font-family: var(--mono); font-size: 11px;
+          letter-spacing: 0.1em; text-transform: uppercase; color: rgb(var(--mid));
         }
         .lm-subtabs-scroll { display: flex; flex-wrap: wrap; gap: 6px; }
         .lm-subtab {
           display: inline-flex; align-items: center; gap: 6px;
-          max-width: 100%; padding: 6px 10px;
+          max-width: 100%; min-height: 44px; padding: 8px 12px;
           border: 1px solid rgb(var(--line) / 0.4);
           background: transparent; color: rgb(var(--mid));
-          border-radius: 8px; font-size: 11.5px; cursor: pointer;
+          border-radius: 8px; font-size: 12px; cursor: pointer;
           transition: background 0.15s, color 0.15s, border-color 0.15s;
         }
         .lm-subtab:hover { color: rgb(var(--hi)); border-color: rgb(var(--line)); }
@@ -238,8 +238,8 @@ export function LessonModal({
         }
         .lm-material-h {
           display: flex; align-items: center; gap: 6px;
-          font-family: var(--mono); font-size: 10px;
-          letter-spacing: 0.14em; text-transform: uppercase;
+          font-family: var(--mono); font-size: 11px;
+          letter-spacing: 0.1em; text-transform: uppercase;
           margin-bottom: 8px;
         }
         .lm-material-title {
@@ -253,10 +253,13 @@ export function LessonModal({
 
         .lm-train {
           display: flex; align-items: center; justify-content: center; gap: 8px;
-          width: 100%; margin-top: 8px; padding: 14px;
+          /* sticky-футер: CTA всегда виден, не нужно скроллить весь урок до низа */
+          position: sticky; bottom: 0; z-index: 3;
+          width: 100%; margin-top: 16px; min-height: 52px; padding: 14px;
           border: none; background: var(--c); color: rgb(var(--bg-0));
           font-weight: 700; font-size: 14px; border-radius: 14px;
           cursor: pointer; transition: filter 0.15s;
+          box-shadow: 0 -16px 22px -10px rgb(var(--bg-1));
         }
         .lm-train:hover { filter: brightness(1.08); }
       `}</style>

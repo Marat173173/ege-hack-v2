@@ -4,13 +4,19 @@ import * as React from "react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, Flame, Trophy, Target, CalendarClock, Bell, Settings2,
-  Volume2, Sun, Moon, Gauge, Pencil, Check, TrendingUp, type LucideIcon,
+  Volume2, Sun, Moon, Gauge, Pencil, Check, TrendingUp, Minus, Plus, type LucideIcon,
 } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
 import { XpRing } from "@/components/ui/xp-ring";
 import { Toggle } from "@/components/ui/toggle";
-import { levelProgress } from "@/lib/gamification";
+import {
+  levelProgress,
+  DAILY_GOAL_PRESETS,
+  DAILY_GOAL_MIN,
+  DAILY_GOAL_MAX,
+  DAILY_GOAL_STEP,
+} from "@/lib/gamification";
 import { AVATARS, avatarHueFor, daysToExam, type Profile } from "@/lib/profile";
 import { computeScore } from "@/lib/score-model";
 import { CARDS, LIVE_KEYS, accentForKey } from "@/data/catalog";
@@ -37,8 +43,8 @@ function Section({
 
 function Stat({ value, label, color }: { value: React.ReactNode; label: string; color?: string }) {
   return (
-    <div className="rounded-xl border border-line bg-[rgb(var(--glass-hi)/0.02)] p-3 text-center">
-      <div className="font-mono text-[22px] font-extrabold leading-none" style={{ color: color ?? "rgb(var(--hi))" }}>
+    <div className="min-w-0 overflow-hidden rounded-xl border border-line bg-[rgb(var(--glass-hi)/0.02)] p-3 text-center">
+      <div className="whitespace-nowrap font-mono text-[22px] font-extrabold leading-none" style={{ color: color ?? "rgb(var(--hi))" }}>
         {value}
       </div>
       <div className="mt-1.5 hud-label text-[10px] text-lo">{label}</div>
@@ -51,6 +57,7 @@ export function ProfileScreen() {
   const profile = useApp((s) => s.profile);
   const updateProfile = useApp((s) => s.updateProfile);
   const game = useApp((s) => s.game);
+  const setDailyGoal = useApp((s) => s.setDailyGoal);
   const data = useApp((s) => s.data);
   const theme = useApp((s) => s.theme);
   const toggleTheme = useApp((s) => s.toggleTheme);
@@ -60,6 +67,33 @@ export function ProfileScreen() {
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState<Profile>(profile);
   React.useEffect(() => setDraft(profile), [profile]);
+
+  // редактор дневной цели: пресеты-чипы + точная настройка степпером
+  const [tuning, setTuning] = React.useState(false);
+  const isPresetGoal = DAILY_GOAL_PRESETS.some((p) => p.xp === game.dailyGoal);
+
+  // активный чип цели всегда в видимой области скролл-ряда
+  const goalGroupRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    goalGroupRef.current
+      ?.querySelector('[aria-checked="true"]')
+      ?.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" });
+  }, [game.dailyGoal, isPresetGoal]);
+
+  // клавиатурная модель радиогруппы (APG): стрелки двигают выбор по кругу
+  function onGoalKeyDown(e: React.KeyboardEvent) {
+    if (!["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"].includes(e.key)) return;
+    e.preventDefault();
+    const radios = Array.from(
+      goalGroupRef.current?.querySelectorAll<HTMLButtonElement>('[role="radio"]') ?? []
+    );
+    if (!radios.length) return;
+    const cur = radios.findIndex((r) => r === document.activeElement);
+    const dir = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : -1;
+    const next = radios[(Math.max(cur, 0) + dir + radios.length) % radios.length];
+    next.focus();
+    next.click();
+  }
 
   const lvl = levelProgress(game.xp);
   const days = daysToExam(profile.examDate);
@@ -91,7 +125,7 @@ export function ProfileScreen() {
         <div className="w-[70px]" />
       </header>
 
-      <main className="mx-auto max-w-[760px] space-y-4 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <main className="pb-nav mx-auto max-w-[760px] space-y-4 px-4 py-6">
         {/* ——— шапка профиля ——— */}
         <LiquidGlass sheen className="relative p-5 md:p-6">
           <div className="flex items-center gap-4">
@@ -211,8 +245,115 @@ export function ProfileScreen() {
 
           <div className="grid grid-cols-3 gap-2">
             <Stat value={<><Flame size={16} className="inline -translate-y-0.5 text-warn" /> {game.streak}</>} label="Серия дней" />
-            <Stat value={<>{game.dailyXp}<span className="text-lo">/{game.dailyGoal}</span></>} label="Цель сегодня" />
+            {/* знаменатель мельче — «150/150» не переполняет ячейку на 320px */}
+            <Stat value={<>{game.dailyXp}<span className="text-[13px] text-lo">/{game.dailyGoal}</span></>} label="Цель сегодня" />
             <Stat value={game.bestCombo} label="Лучшее комбо" color="#FF5C6E" />
+          </div>
+
+          {/* дневная цель — редактируемая: темп у всех разный */}
+          <div className="mt-4 rounded-xl border border-line bg-[rgb(var(--glass-hi)/0.02)] p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Target size={14} className="text-accent" />
+                <span className="hud-label text-[11px] text-mid">Дневная цель</span>
+              </span>
+              <button
+                onClick={() => setTuning((v) => !v)}
+                aria-expanded={tuning}
+                className="focus-ring flex min-h-[44px] items-center px-2 text-[11px] text-mid transition-colors hover:text-hi"
+              >
+                {tuning ? "Скрыть" : "Настроить точно"}
+              </button>
+            </div>
+
+            {/* пресеты темпа: роверный tabIndex + стрелки; правый fade — намёк на скролл */}
+            <div
+              ref={goalGroupRef}
+              role="radiogroup"
+              aria-label="Темп занятий"
+              onKeyDown={onGoalKeyDown}
+              className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]"
+              style={{
+                maskImage: "linear-gradient(to right, black calc(100% - 28px), transparent)",
+                WebkitMaskImage: "linear-gradient(to right, black calc(100% - 28px), transparent)",
+              }}
+            >
+              {/* «Своя» — настоящий radio В НАЧАЛЕ ряда (не исчезает за краем) */}
+              {!isPresetGoal && (
+                <button
+                  role="radio"
+                  aria-checked={true}
+                  tabIndex={0}
+                  onClick={() => setTuning(true)}
+                  aria-label={`Своя цель, ${game.dailyGoal} XP — настроить`}
+                  className="focus-ring flex min-h-[44px] shrink-0 flex-col items-center justify-center rounded-xl border border-accent bg-accent/[0.12] px-3.5 py-2"
+                >
+                  <span className="text-[12px] font-semibold text-accent">Своя</span>
+                  <span className="font-mono text-[10px] text-mid">{game.dailyGoal} XP</span>
+                </button>
+              )}
+              {DAILY_GOAL_PRESETS.map((p) => {
+                const on = game.dailyGoal === p.xp;
+                return (
+                  <button
+                    key={p.xp}
+                    role="radio"
+                    aria-checked={on}
+                    tabIndex={on ? 0 : -1}
+                    onClick={() => setDailyGoal(p.xp)}
+                    className="focus-ring flex min-h-[44px] shrink-0 flex-col items-center justify-center rounded-xl border px-3.5 py-2 transition-colors"
+                    style={{
+                      borderColor: on ? "rgb(var(--accent))" : "rgb(var(--line)/0.4)",
+                      background: on ? "rgb(var(--accent)/0.12)" : "rgb(var(--glass-hi)/0.02)",
+                    }}
+                  >
+                    <span
+                      className="text-[12px] font-semibold"
+                      style={{ color: on ? "rgb(var(--accent))" : "rgb(var(--hi))" }}
+                    >
+                      {p.label}
+                    </span>
+                    <span className="font-mono text-[10px] text-mid">
+                      {p.xp} XP · {p.note}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* точная настройка: −/+ шагом 10, границы 10..500 (clamp в сторе) */}
+            {tuning && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                className="overflow-hidden"
+              >
+                <div className="mt-3 flex items-center justify-center gap-4">
+                  <button
+                    onClick={() => setDailyGoal(game.dailyGoal - DAILY_GOAL_STEP)}
+                    disabled={game.dailyGoal <= DAILY_GOAL_MIN}
+                    aria-label="Уменьшить цель"
+                    className="focus-ring grid h-11 w-11 place-items-center rounded-lg border border-line text-hi transition-colors hover:bg-[rgb(var(--glass-hi)/0.06)] disabled:opacity-30"
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <div aria-live="polite" className="min-w-[96px] text-center">
+                    <span className="font-mono text-[22px] font-extrabold text-hi">
+                      {game.dailyGoal}
+                    </span>
+                    <span className="ml-1 text-[12px] text-mid">XP/день</span>
+                  </div>
+                  <button
+                    onClick={() => setDailyGoal(game.dailyGoal + DAILY_GOAL_STEP)}
+                    disabled={game.dailyGoal >= DAILY_GOAL_MAX}
+                    aria-label="Увеличить цель"
+                    className="focus-ring grid h-11 w-11 place-items-center rounded-lg border border-line text-hi transition-colors hover:bg-[rgb(var(--glass-hi)/0.06)] disabled:opacity-30"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+              </motion.div>
+            )}
           </div>
 
           {/* прогресс по предметам */}

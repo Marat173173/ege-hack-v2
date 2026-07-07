@@ -3,10 +3,10 @@
 import * as React from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Gauge } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { detectTier, type Tier } from "@/lib/device-tier";
-import { isLocked, unlockGap, highestOpenIndex } from "@/lib/floor-build";
+import { isLocked, unlockGap, highestOpenIndex, overallReadiness } from "@/lib/floor-build";
 import { PixelBloom, type BloomTrigger } from "@/components/spire/PixelBloom";
 import { useIsMobile } from "@/lib/use-media";
 import { TopBar } from "./TopBar";
@@ -15,7 +15,6 @@ import { Inspector } from "./Inspector";
 import { ModalHost } from "./ModalHost";
 import { CelebrationOverlay } from "./CelebrationOverlay";
 import { PathScreen } from "./PathScreen";
-import { MobileBottomBar } from "./MobileBottomBar";
 import { MobileSheets } from "./MobileSheets";
 import { useToast } from "./Toast";
 
@@ -35,6 +34,7 @@ export function SpireScreen() {
   const lightMode = useApp((s) => s.lightMode);
   const selectFloor = useApp((s) => s.selectFloor);
   const closeInspector = useApp((s) => s.closeInspector);
+  const setSheet = useApp((s) => s.setSheet);
   const floorById = useApp((s) => s.floorById);
   const viewMode = useApp((s) => s.profile.viewMode);
   const isMobile = useIsMobile();
@@ -145,14 +145,28 @@ export function SpireScreen() {
       )}
 
       <TopBar />
-      {/* десктоп/планшет — плавающая консоль; мобайл — нижний бар + шиты */}
-      {!isMobile && <Console />}
-      {isMobile && (
-        <>
-          <MobileBottomBar />
-          <MobileSheets />
-        </>
+
+      {/* мобильный чип готовности — на месте бывшего бургера; открывает шит
+          «Прогресс» (готовность, прогноз балла, дрожащие зоны, выбор урока) */}
+      {isMobile && !focusId && (
+        <button
+          onClick={() => setSheet("progress")}
+          aria-label={`Готовность ${overallReadiness(subject.floors)} процентов — открыть прогресс`}
+          className="liquid-glass focus-ring fixed z-[6] flex items-center gap-1.5 rounded-full px-2.5"
+          style={{
+            top: "max(0.5rem, env(safe-area-inset-top))",
+            left: "max(0.5rem, env(safe-area-inset-left))",
+            minHeight: 40,
+          }}
+        >
+          <Gauge size={14} className="text-accent" />
+          <b className="font-mono text-[12px] text-accent">{overallReadiness(subject.floors)}%</b>
+        </button>
       )}
+
+      {/* десктоп/планшет — плавающая консоль; мобайл — шиты (навигация в таб-баре) */}
+      {!isMobile && <Console />}
+      {isMobile && <MobileSheets />}
       <Inspector />
       <ModalHost />
       <CelebrationOverlay />
@@ -180,7 +194,8 @@ export function SpireScreen() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             onClick={closeInspector}
-            className="liquid-glass fixed left-1/2 top-16 z-[5] flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-hi"
+            style={{ top: "calc(env(safe-area-inset-top) + 56px)" }}
+            className="liquid-glass focus-ring fixed left-1/2 z-[5] flex min-h-[44px] -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-hi"
           >
             <ArrowLeft size={13} /> к Шпилю
           </motion.button>

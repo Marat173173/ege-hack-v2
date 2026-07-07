@@ -1,46 +1,42 @@
 "use client";
 
-import * as React from "react";
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
+import { useApp } from "@/lib/store";
 
 /**
- * Плавающая кнопка-FAB в правом нижнем углу для перехода на /tutor.
- * Скрывается на самой странице чата и в onboarding/landing, чтобы не мешать.
+ * Кнопка ИИ-репетитора — контекстная.
+ *
+ * По фидбеку: показывается ТОЛЬКО в игровом окне (Шпиль/Тропа) и ТОЛЬКО при
+ * открытой теме — Инспектор рендерит её над своим bottom-sheet'ом (absolute
+ * к шиту, «поднимается наверх над окошком модуля»). Ссылка несёт фильтр
+ * открытой темы: /tutor?topic=<код>&subject=<предмет>.
  */
-export function TutorFAB() {
-  const [hidden, setHidden] = React.useState(false);
-
-  React.useEffect(() => {
-    function check() {
-      const p = window.location.pathname;
-      // Не показывать на самой странице чата
-      setHidden(p.startsWith("/tutor"));
-    }
-    check();
-    window.addEventListener("popstate", check);
-    return () => window.removeEventListener("popstate", check);
-  }, []);
-
-  if (hidden) return null;
+export function TutorFAB({ topic }: { topic: string }) {
+  const subjectKey = useApp((s) => s.subjectKey);
+  // паттерн проекта: rus → "russian" (см. FipiSubtopics/PathScreen)
+  const subject = subjectKey === "rus" ? "russian" : subjectKey;
 
   return (
     <motion.a
-      href="/tutor"
-      initial={{ opacity: 0, scale: 0.85, y: 20 }}
+      href={`/tutor?topic=${encodeURIComponent(topic)}&subject=${encodeURIComponent(subject)}`}
+      initial={{ opacity: 0, scale: 0.7, y: 12 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ delay: 0.6, type: "spring", stiffness: 260, damping: 22 }}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      aria-label="Открыть ИИ-репетитора"
-      className="fixed bottom-5 right-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-[rgb(var(--accent))] text-[rgb(var(--bg-0))] shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.05)] sm:bottom-6 sm:right-6"
+      transition={{ delay: 0.15, type: "spring", stiffness: 280, damping: 22 }}
+      whileTap={{ scale: 0.92 }}
+      aria-label={`Спросить ИИ-репетитора по теме ${topic}`}
+      className="focus-ring absolute -top-[54px] right-3 z-[2] grid h-11 w-11 place-items-center rounded-full border"
       style={{
-        // безопасная зона для устройств с домашней полосой (iPhone)
-        bottom: "max(1.25rem, env(safe-area-inset-bottom))",
+        background: "rgb(var(--accent) / 0.18)",
+        borderColor: "rgb(var(--accent) / 0.4)",
+        color: "rgb(var(--accent))",
+        backdropFilter: "blur(14px) saturate(160%)",
+        WebkitBackdropFilter: "blur(14px) saturate(160%)",
+        boxShadow: "0 8px 20px -10px rgba(0,0,0,0.55)",
       }}
     >
-      <Sparkles className="h-6 w-6" />
-      <span className="sr-only">Открыть ИИ-репетитора</span>
+      <Sparkles className="h-5 w-5" />
+      <span className="sr-only">Открыть ИИ-репетитора по теме</span>
     </motion.a>
   );
 }

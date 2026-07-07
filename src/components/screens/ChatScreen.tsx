@@ -177,7 +177,7 @@ export function ChatScreen() {
               )}
               <div className="max-w-[78%]">
                 {!mine && !isAi && (
-                  <div className="mb-0.5 ml-1 text-[10px] text-lo">{m.who}</div>
+                  <div className="mb-0.5 ml-1 text-[12px] text-mid">{m.who}</div>
                 )}
                 <div
                   className={
@@ -236,7 +236,7 @@ export function ChatScreen() {
             <button
               key={q}
               onClick={() => setInput(q)}
-              className="flex min-h-[40px] shrink-0 items-center gap-1 rounded-full border border-line bg-[rgb(var(--glass-hi)/0.03)] px-3.5 py-2 text-[12px] text-mid transition-colors hover:border-accent/40 hover:text-hi active:border-accent/40"
+              className="flex min-h-[44px] shrink-0 items-center gap-1 rounded-full border border-line bg-[rgb(var(--glass-hi)/0.03)] px-3.5 py-2 text-[12.5px] text-mid transition-colors hover:border-accent/40 hover:text-hi active:border-accent/40"
             >
               <Sparkles size={11} className="text-accent" /> {q}
             </button>
@@ -265,7 +265,7 @@ export function ChatScreen() {
             }
             aria-label="Сообщение"
             placeholder={tab === "ai" ? "Спроси ИИ-наставника…" : "Сообщение в чат…"}
-            className="flex-1 bg-transparent px-3 py-2.5 text-[15px] text-hi outline-none placeholder:text-lo"
+            className="flex-1 bg-transparent px-3 py-2.5 text-[16px] text-hi placeholder:text-lo"
           />
           <button
             onClick={send}

@@ -27,6 +27,28 @@ export const DEFAULT_GAME: GameState = {
   bestCombo: 0,
 };
 
+/**
+ * Пресеты дневной цели (XP/день) — «все учатся в разном темпе».
+ * XP.correct = 10, значит цель ≈ (XP/10) верных ответов.
+ */
+export const DAILY_GOAL_PRESETS = [
+  { xp: 20, label: "Спокойный", note: "~2 задания" },
+  { xp: 50, label: "Обычный", note: "~5 заданий" },
+  { xp: 100, label: "Серьёзный", note: "~10 заданий" },
+  { xp: 150, label: "Хардкор", note: "~15 заданий" },
+] as const;
+
+export const DAILY_GOAL_MIN = 10;
+export const DAILY_GOAL_MAX = 500;
+export const DAILY_GOAL_STEP = 10;
+
+/** Нормализует дневную цель к валидному диапазону [10..500], шаг 10. */
+export function clampDailyGoal(xp: number): number {
+  if (!Number.isFinite(xp)) return DEFAULT_GAME.dailyGoal;
+  const stepped = Math.round(xp / DAILY_GOAL_STEP) * DAILY_GOAL_STEP;
+  return Math.max(DAILY_GOAL_MIN, Math.min(DAILY_GOAL_MAX, stepped));
+}
+
 /** Базовая награда за событие. */
 export const XP = {
   correct: 10, // верный ответ

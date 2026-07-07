@@ -14,6 +14,11 @@ import { ProfileScreen } from "@/components/screens/ProfileScreen";
 import { ChatScreen } from "@/components/screens/ChatScreen";
 import { FormatChoiceScreen } from "@/components/screens/FormatChoiceScreen";
 import { LeaguesScreen } from "@/components/screens/LeaguesScreen";
+import { BottomTabBar } from "@/components/screens/BottomTabBar";
+
+/** Экраны, где показываем постоянный нижний таб-бар (главные разделы).
+ *  Чат/Solve/интро — фокус-контексты со своим «назад», бар там скрыт. */
+const TABBAR_SCREENS = ["spire", "parent", "leagues", "profile"] as const;
 
 /** HSL hue → "r g b" (полная насыщенность, для вторичного акцента). */
 function hueToRgb(h: number, s = 70, l = 58): string {
@@ -90,6 +95,10 @@ export default function Page() {
             {screen === "leagues" && <LeaguesScreen />}
           </motion.div>
         </AnimatePresence>
+
+        {/* постоянная нижняя навигация (мобилка) — вне AnimatePresence, чтобы
+            не перемонтироваться и не мигать при смене экрана */}
+        {(TABBAR_SCREENS as readonly string[]).includes(screen) && <BottomTabBar />}
       </ToastProvider>
     </MotionConfig>
   );
