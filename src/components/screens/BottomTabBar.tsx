@@ -18,8 +18,9 @@ import { useApp } from "@/lib/store";
  * Нижняя таб-навигация — «плавающий островок» (mobile-first).
  *
  * 4 пункта: Учёба (Шпиль⇄Тропа повторным тапом) · Чат · Лиги · Профиль.
- * По фидбеку: при ОТКРЫТОМ МОДУЛЕ (шит темы/Inspector) остров улетает влево,
- * чтобы не мешать окошку; вернуть — тап по стрелке у левого края или свайп.
+ * По фидбеку: при ОТКРЫТОМ ОВЕРЛЕЕ (модуль/Inspector, шиты «Прогресс» и
+ * «Выбор урока») и на экране ЧАТА остров авто-улетает влево, чтобы не мешать;
+ * вернуть — тап по стрелке у левого края или свайп.
  * Свайп бара влево прячет его снова. Активный пункт — янтарная пилюля.
  */
 type TabKey = "study" | "chat" | "leagues" | "profile";
@@ -30,14 +31,20 @@ export function BottomTabBar() {
   const setScreen = useApp((s) => s.setScreen);
   const updateProfile = useApp((s) => s.updateProfile);
   const closeInspector = useApp((s) => s.closeInspector);
-  // модуль (тема) открыт в игровом окне → бар уступает место окошку
-  const moduleOpen = useApp(
-    (s) => !!s.selectedId && (s.screen === "spire" || s.screen === "parent")
+  // оверлей поверх игрового окна: открыт модуль (Inspector) ИЛИ шит
+  // («Прогресс»/«Выбор урока») → бар уступает место окошку
+  const overlayOpen = useApp(
+    (s) =>
+      (!!s.selectedId || s.sheet !== null) &&
+      (s.screen === "spire" || s.screen === "parent")
   );
+  // экран чата: бар присутствует, но авто-спрятан (фокус на переписке)
+  const chatOpen = screen === "chat";
+  const autoHide = overlayOpen || chatOpen;
 
   const [collapsed, setCollapsed] = React.useState(false);
-  // авто: открыли модуль → бар улетает; закрыли → возвращается
-  React.useEffect(() => setCollapsed(moduleOpen), [moduleOpen]);
+  // авто: открыли оверлей/чат → бар улетает; закрыли → возвращается
+  React.useEffect(() => setCollapsed(autoHide), [autoHide]);
 
   // одноразовый коуч-марк: повторный тап по активному табу — неочевидный
   // жест, подсказываем при первом заходе (ревью P1: discoverability формата)
@@ -57,11 +64,20 @@ export function BottomTabBar() {
   const onStudy = screen === "spire" || screen === "parent";
   const active: TabKey = onStudy ? "study" : (screen as TabKey);
   const isPath = viewMode === "path";
+  const sheet = useApp((s) => s.sheet);
+  const setSheet = useApp((s) => s.setSheet);
+  const selectedId = useApp((s) => s.selectedId);
 
   function goStudy() {
     setHint(false);
     if (onStudy) {
-      closeInspector();
+      // открыт шит/модуль → тап по «Учёбе» закрывает оверлей,
+      // а НЕ переключает формат под ним (иначе смена вида невидима)
+      if (sheet !== null || selectedId) {
+        setSheet(null);
+        closeInspector();
+        return;
+      }
       updateProfile({ viewMode: isPath ? "spire" : "path", viewChosen: true });
     } else {
       setScreen("spire");
@@ -86,8 +102,9 @@ export function BottomTabBar() {
         aria-label="Основная навигация"
         className="pointer-events-none fixed inset-x-0 bottom-0 md:hidden"
         style={{
-          // над шитом модуля (z-55), чтобы развёрнутый бар был кликабелен
-          zIndex: moduleOpen ? 56 : 45,
+          // над Inspector (z-55) и шитами BottomSheet (z-58), но под
+          // модалками (z-60) — развёрнутый бар кликабелен поверх оверлеев
+          zIndex: autoHide ? 59 : 45,
           paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)",
         }}
       >
@@ -109,8 +126,8 @@ export function BottomTabBar() {
           className="pointer-events-auto mx-auto w-[min(92vw,400px)]"
           animate={{ x: collapsed ? "-110vw" : "0vw" }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          // свайп влево прячет бар (актуально, когда модуль открыт)
-          drag={moduleOpen ? "x" : false}
+          // свайп влево прячет бар (актуально при оверлее/чате)
+          drag={autoHide ? "x" : false}
           dragConstraints={{ left: 0, right: 0 }}
           dragElastic={{ left: 0.5, right: 0 }}
           onDragEnd={(_, info) => {
@@ -175,7 +192,7 @@ export function BottomTabBar() {
 
       {/* стрелка у левого края — возвращает улетевший бар */}
       <AnimatePresence>
-        {moduleOpen && collapsed && (
+        {autoHide && collapsed && (
           <motion.button
             initial={{ opacity: 0, x: -24 }}
             animate={{ opacity: 1, x: 0 }}
@@ -183,9 +200,12 @@ export function BottomTabBar() {
             transition={{ type: "spring", stiffness: 320, damping: 26 }}
             onClick={() => setCollapsed(false)}
             aria-label="Показать навигацию"
-            className="focus-ring fixed left-0 z-[56] grid h-12 w-10 place-items-center rounded-r-2xl border border-l-0 md:hidden"
+            className="focus-ring fixed left-0 z-[59] grid h-12 w-10 place-items-center rounded-r-2xl border border-l-0 md:hidden"
             style={{
-              bottom: "calc(env(safe-area-inset-bottom) + 20px)",
+              // на чате хэндл поднят над полем ввода, иначе перекроет инпут
+              bottom: chatOpen
+                ? "calc(env(safe-area-inset-bottom) + 92px)"
+                : "calc(env(safe-area-inset-bottom) + 20px)",
               background:
                 "linear-gradient(135deg, rgb(var(--glass-hi)/0.1), transparent 50%), rgb(var(--glass-tint)/0.55)",
               borderColor: "rgb(var(--glass-hi) / var(--glass-border-a))",

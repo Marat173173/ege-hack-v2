@@ -17,8 +17,9 @@ import { LeaguesScreen } from "@/components/screens/LeaguesScreen";
 import { BottomTabBar } from "@/components/screens/BottomTabBar";
 
 /** Экраны, где показываем постоянный нижний таб-бар (главные разделы).
- *  Чат/Solve/интро — фокус-контексты со своим «назад», бар там скрыт. */
-const TABBAR_SCREENS = ["spire", "parent", "leagues", "profile"] as const;
+ *  На чате бар есть, но авто-спрятан влево (стрелка возвращает).
+ *  Solve/интро — фокус-контексты со своим «назад», бар там скрыт. */
+const TABBAR_SCREENS = ["spire", "parent", "leagues", "profile", "chat"] as const;
 
 /** HSL hue → "r g b" (полная насыщенность, для вторичного акцента). */
 function hueToRgb(h: number, s = 70, l = 58): string {
