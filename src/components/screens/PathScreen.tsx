@@ -20,7 +20,9 @@ import type { Floor } from "@/data/types";
  * Текущая (самая слабая открытая) тема подсвечена пульсом «ты здесь».
  */
 
-const NODE_GAP = 104;
+// шаг змейки: 148px = узел 58 + подпись до 3 строк + зазор ≥8px —
+// подписи больше не наезжают на следующий узел (было 104 — перекрытие)
+const NODE_GAP = 148;
 const AMP = 92;
 
 /** Разделы кодификатора русского для группировки. */
@@ -50,6 +52,20 @@ export function PathScreen() {
   const reduce = useReducedMotion();
 
   const floors = subject.floors;
+
+  // ширина колонки змейки в px — волна рисуется в РЕАЛЬНЫХ координатах
+  // (раньше viewBox 0..100 + preserveAspectRatio="none" растягивал штрихи
+  // и ломал форму волны — «кривое отображение»)
+  const trackRef = React.useRef<HTMLDivElement>(null);
+  const [trackW, setTrackW] = React.useState(0);
+  React.useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setTrackW(el.clientWidth));
+    ro.observe(el);
+    setTrackW(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
 
   // ——— видимый набор: открытые + 3 закрытых превью ———
   const visible = React.useMemo(() => visibleFloors(floors), [floors]);
@@ -192,25 +208,26 @@ export function PathScreen() {
 
             {/* Змейка узлов */}
             <div
+              ref={trackRef}
               className="relative mx-auto w-full max-w-[560px]"
               style={{ height: sectionFloors.length * NODE_GAP + 48 }}
             >
-              <svg
-                className="pointer-events-none absolute left-0 top-0 h-full w-full"
-                viewBox={`0 0 100 ${sectionFloors.length * NODE_GAP + 48}`}
-                preserveAspectRatio="none"
-              >
-                <path
-                  d={pathLine(sectionFloors.length)}
-                  fill="none"
-                  stroke={meta?.hue ?? "rgb(var(--accent))"}
-                  strokeWidth="1.4"
-                  strokeDasharray="1 6"
-                  strokeOpacity="0.4"
-                  strokeLinecap="round"
-                  vectorEffect="non-scaling-stroke"
-                />
-              </svg>
+              {trackW > 0 && (
+                <svg
+                  className="pointer-events-none absolute left-0 top-0 h-full w-full"
+                  viewBox={`0 0 ${trackW} ${sectionFloors.length * NODE_GAP + 48}`}
+                >
+                  <path
+                    d={pathLine(sectionFloors.length, trackW)}
+                    fill="none"
+                    stroke={meta?.hue ?? "rgb(var(--accent))"}
+                    strokeWidth="2"
+                    strokeDasharray="0.5 9"
+                    strokeOpacity="0.45"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              )}
 
               {sectionFloors.map((f, si) => {
                 const i = floors.indexOf(f);
@@ -348,12 +365,23 @@ export function PathScreen() {
   );
 }
 
-function pathLine(n: number): string {
-  let d = "";
-  for (let i = 0; i < n; i++) {
-    const cx = 50 + Math.sin(i * 0.9) * (AMP / 5.2);
-    const y = i * NODE_GAP + 37;
-    d += `${i === 0 ? "M" : "L"} ${cx.toFixed(2)} ${y} `;
+/**
+ * Гладкая волна через ЦЕНТРЫ узлов (px-координаты, без растяжения).
+ * Кубические сегменты с вертикальными контрольными точками на середине
+ * шага — классическая «змейка» Duolingo вместо ломаной.
+ */
+function pathLine(n: number, w: number): string {
+  const pts = Array.from({ length: n }, (_, i) => ({
+    x: ((50 + Math.sin(i * 0.9) * (AMP / 5.2)) / 100) * w,
+    y: i * NODE_GAP + 37, // центр круга: top(si*GAP+8) + радиус 29
+  }));
+  if (!pts.length) return "";
+  let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y}`;
+  for (let i = 1; i < pts.length; i++) {
+    const p = pts[i - 1];
+    const c = pts[i];
+    const my = (p.y + c.y) / 2;
+    d += ` C ${p.x.toFixed(1)} ${my}, ${c.x.toFixed(1)} ${my}, ${c.x.toFixed(1)} ${c.y}`;
   }
   return d;
 }
