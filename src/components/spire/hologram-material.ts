@@ -48,11 +48,15 @@ export function makeHologramMaterial(hue: string): THREE.ShaderMaterial {
       varying vec3 vViewDir;
       varying float vWorldY;
       void main() {
-        // бегущие скан-полосы по мировой высоте
-        float scan = step(0.55, fract(vWorldY * 6.0 - uTime * 0.6));
+        // бегущие скан-ЛИНИИ по мировой высоте: тонкие (~12% периода,
+        // частота 10/юнит), с мягкими краями — не мерцают на мобиле
+        float f = fract(vWorldY * 10.0 - uTime * 0.6);
+        float scan = smoothstep(0.82, 0.88, f) * (1.0 - smoothstep(0.94, 1.0, f));
         // fresnel: край силуэта светится, «объём» без освещения
         float fres = pow(1.0 - abs(dot(normalize(vNormal), normalize(vViewDir))), 2.2);
-        float alpha = mix(0.10, 0.30, scan) + fres * 0.35;
+        // тонкие линии покрывают меньше площади — чуть плотнее тело/линия,
+        // чтобы призрак не «истаял»
+        float alpha = mix(0.12, 0.34, scan) + fres * 0.35;
         vec3 col = uColor * (0.75 + 0.5 * fres) + uColor * scan * 0.15;
         // светлая тема: пигмент темнее (как offsetHSL у стандартного
         // материала), альфа плотнее — иначе растворяется на белом фоне
