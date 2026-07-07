@@ -64,6 +64,15 @@ export function comboMultiplier(combo: number): number {
   return Math.min(3, 1 + Math.floor(combo / 3) * 0.5);
 }
 
+/**
+ * Веха «рекорд комбо»: прежний рекорд побит И новый кратен 5 (5, 10, 15…).
+ * Анти-спам: без порогов рекорд бьётся каждым ответом при длинной серии —
+ * празднование должно оставаться редким.
+ */
+export function comboRecordMilestone(prevBest: number, nextBest: number): boolean {
+  return nextBest > prevBest && nextBest >= 5 && nextBest % 5 === 0;
+}
+
 /** Порог XP для достижения уровня L (1-индекс). Растёт квадратично-линейно. */
 export function levelThreshold(level: number): number {
   // ур.1 = 0, ур.2 = 60, ур.3 = 140, ур.4 = 240, … (60·(L-1) + 20·(L-1)(L-2))

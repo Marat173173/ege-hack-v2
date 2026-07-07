@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Trophy, Flame, Target, Sparkles } from "lucide-react";
+import { Trophy, Flame, Target, Sparkles, Medal, Flag } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { playCelebrate } from "@/lib/sound";
 import { prefersReducedMotion } from "@/lib/device-tier";
@@ -12,6 +12,8 @@ const ICONS = {
   "level-up": Trophy,
   goal: Target,
   streak: Flame,
+  record: Medal,
+  section: Flag,
 } as const;
 
 /** Конфетти на canvas — без библиотек. Запускается на маунте оверлея. */

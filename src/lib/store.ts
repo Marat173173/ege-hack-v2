@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { SUBJECTS, LIVE_KEYS, type Subject } from "@/data/catalog";
 import { floorState } from "@/lib/floor-state";
-import { DEFAULT_GAME, award, rolloverDay, clampDailyGoal, type GameState } from "@/lib/gamification";
+import { DEFAULT_GAME, award, rolloverDay, clampDailyGoal, comboRecordMilestone, type GameState } from "@/lib/gamification";
 import { DEFAULT_PROFILE, type Profile } from "@/lib/profile";
 
 type Mode = "student" | "parent";
@@ -24,7 +24,9 @@ export type Celebration =
   | { kind: "floor-solid"; title: string; subtitle: string }
   | { kind: "level-up"; title: string; subtitle: string }
   | { kind: "goal"; title: string; subtitle: string }
-  | { kind: "streak"; title: string; subtitle: string };
+  | { kind: "streak"; title: string; subtitle: string }
+  | { kind: "record"; title: string; subtitle: string }
+  | { kind: "section"; title: string; subtitle: string };
 
 /** «Тост» прилёта XP (для всплывашек +N). */
 export interface XpPing {
@@ -213,14 +215,40 @@ export const useApp = create<AppState>((set, get) => ({
       };
       // веха: этаж затвердел → в очередь празднований
       if (!wasSolid && nowSolid && after) {
+        // сколько этажей предмета были монолитом ДО этого перехода
+        // (сам этаж не был solid — исключать его не нужно)
+        const solidBefore = subj.floors.filter((f) => floorState(f) === "solid").length;
         next.celebrationQueue = [
           ...st.celebrationQueue,
-          {
-            kind: "floor-solid",
-            title: "Этаж затвердел!",
-            subtitle: `«${after.name}» больше не дрожит — диапазон сузился.`,
-          },
+          solidBefore === 0
+            ? {
+                kind: "floor-solid",
+                title: "Первый монолит!",
+                subtitle: "Первая тема доведена до конца. Так строится вся башня.",
+              }
+            : {
+                kind: "floor-solid",
+                title: "Этаж затвердел!",
+                subtitle: `«${after.name}» больше не дрожит — диапазон сузился.`,
+              },
         ];
+        // веха: раздел ФИПИ закрыт — все этажи с этим префиксом секции теперь монолит
+        if (/^\d+\.\d+/.test(after.id)) {
+          const section = after.id.split(".")[0];
+          const inSection = floors.filter(
+            (f) => /^\d+\.\d+/.test(f.id) && f.id.split(".")[0] === section
+          );
+          if (inSection.every((f) => floorState(f) === "solid")) {
+            next.celebrationQueue = [
+              ...next.celebrationQueue,
+              {
+                kind: "section",
+                title: `Раздел ${section} закрыт!`,
+                subtitle: "Все темы раздела — монолит.",
+              },
+            ];
+          }
+        }
       }
       return next;
     }),
@@ -234,15 +262,26 @@ export const useApp = create<AppState>((set, get) => ({
       const patch: Partial<AppState> = { game: state };
       // первый раз — подтянуть профиль из localStorage
       if (st.profile === DEFAULT_PROFILE) patch.profile = loadProfile();
-      // первый заход за сегодня и серия выросла → празднование серии
+      // первый заход за сегодня и серия выросла → празднование серии;
+      // каждые 7 дней — редкая веха «неделя огня» вместо ежедневной формулировки
       if (newDay && state.streak > loaded.streak) {
+        const weeks = state.streak / 7;
         patch.celebrationQueue = [
           ...st.celebrationQueue,
-          {
-            kind: "streak",
-            title: `${state.streak} ${pluralDays(state.streak)} подряд!`,
-            subtitle: "Серия продолжается. Не сбавляй темп.",
-          },
+          state.streak % 7 === 0
+            ? {
+                kind: "streak",
+                title:
+                  state.streak > 7
+                    ? `${weeks} ${pluralWeeks(weeks)} огня!`
+                    : "Неделя огня!",
+                subtitle: `${state.streak} ${pluralDays(state.streak)} подряд без единого пропуска.`,
+              }
+            : {
+                kind: "streak",
+                title: `${state.streak} ${pluralDays(state.streak)} подряд!`,
+                subtitle: "Серия продолжается. Не сбавляй темп.",
+              },
         ];
       }
       return patch;
@@ -263,6 +302,14 @@ export const useApp = create<AppState>((set, get) => ({
           kind: "level-up",
           title: `Уровень ${res.newLevel}!`,
           subtitle: "Шпиль набирает мощь. Так держать.",
+        });
+      }
+      // веха: рекорд комбо (редко — только на кратных 5, иначе спам на длинной серии)
+      if (comboRecordMilestone(st.game.bestCombo, res.state.bestCombo)) {
+        queued.push({
+          kind: "record",
+          title: `Рекорд: ${res.state.bestCombo} подряд!`,
+          subtitle: "Лучшая серия верных ответов — комбо-множитель тащит.",
         });
       }
       if (res.goalReached) {
@@ -309,6 +356,14 @@ export const useApp = create<AppState>((set, get) => ({
       return { profile };
     }),
 }));
+
+function pluralWeeks(n: number): string {
+  const a = n % 10,
+    b = n % 100;
+  if (a === 1 && b !== 11) return "неделя";
+  if (a >= 2 && a <= 4 && (b < 10 || b >= 20)) return "недели";
+  return "недель";
+}
 
 function pluralDays(n: number): string {
   const a = n % 10,
