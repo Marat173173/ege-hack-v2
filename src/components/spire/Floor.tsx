@@ -62,7 +62,7 @@ export function Floor({
   const canGrow = !["torus", "facet", "core"].includes(floor.geom);
 
   const material = React.useMemo(() => {
-    return new THREE.MeshStandardMaterial({
+    const m = new THREE.MeshStandardMaterial({
       color: new THREE.Color(floor.hue),
       emissive: new THREE.Color(floor.hue),
       emissiveMap: tex,
@@ -72,7 +72,27 @@ export function Floor({
       roughness: 0.45,
       transparent: true,
       opacity: 1,
+      envMapIntensity: 0.6, // IBL из сцены (RoomEnvironment) — живой металл
     });
+    // fresnel-rim: «стеклянный» контур по краю силуэта (~5 ALU, ок даже low).
+    // Добавляем в emissive-канал, чтобы обод светился и в тумане.
+    m.onBeforeCompile = (shader) => {
+      shader.uniforms.uRimColor = { value: new THREE.Color(floor.hue) };
+      shader.uniforms.uRimStrength = { value: 0.5 };
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          "#include <common>",
+          "#include <common>\nuniform vec3 uRimColor;\nuniform float uRimStrength;"
+        )
+        .replace(
+          "#include <emissivemap_fragment>",
+          `#include <emissivemap_fragment>
+          float rimF = pow(1.0 - saturate(dot(normalize(vNormal), normalize(vViewPosition))), 3.0);
+          totalEmissiveRadiance += uRimColor * rimF * uRimStrength;`
+        );
+      m.userData.shader = shader; // для рантайм-обновления силы обода
+    };
+    return m;
   }, [floor.hue, tex]);
 
   const ringMat = React.useMemo(
@@ -179,6 +199,15 @@ export function Floor({
       // почти чёрном фоне пропадал даже с поднятой непрозрачностью
       m.emissiveIntensity =
         (st === "ghost" ? 0.16 : st === "forming" ? 0.4 : st === "unstable" ? 0.7 : 0.92) * g;
+    }
+
+    // IBL-отклик и сила fresnel-обода — по теме/состоянию
+    m.envMapIntensity = isLight ? 0.3 : st === "ghost" ? 0.25 : 0.65;
+    const sh = m.userData.shader as
+      | { uniforms?: { uRimStrength?: { value: number } } }
+      | undefined;
+    if (sh?.uniforms?.uRimStrength) {
+      sh.uniforms.uRimStrength.value = isLight ? 0.2 : st === "ghost" ? 0.32 : 0.55;
     }
 
     ringMat.color.setHex(ringColor(st, isLight));
@@ -342,18 +371,28 @@ export function Floor({
         geometry={geom}
         material={material}
         rotation={floor.geom === "torus" ? [Math.PI / 2, 0, 0] : [0, 0, 0]}
+      />
+
+      {/* невидимая тап-мишень: полный цилиндр вместо тонких/дырявых форм
+          (тор = промах в «дырку», каркас призрака = промах между рёбрами).
+          Гард e.delta>8 отсекает жест орбиты, завершившийся на этаже. */}
+      <mesh
+        visible={false}
         onPointerDown={handleDown}
         onPointerOver={handleOver}
         onPointerOut={handleOut}
         onClick={(e) => {
           e.stopPropagation();
+          if (e.delta > 8) return; // это был drag, не тап
           onPick(floor.id, e.nativeEvent.clientX, e.nativeEvent.clientY);
         }}
-      />
+      >
+        <cylinderGeometry args={[Math.max(1.9, rR + 0.15), Math.max(1.9, rR + 0.15), bH + 0.3, 8]} />
+      </mesh>
 
       {/* индикатор блокировки (гейтинг): заблокирован, но кликабелен */}
       {locked && (
-        <Html center distanceFactor={8} position={[0, 0, 0]} zIndexRange={[20, 0]}>
+        <Html center position={[0, 0, 0]} zIndexRange={[20, 0]}>
           <div
             style={{
               pointerEvents: "none",
@@ -377,11 +416,12 @@ export function Floor({
         </Html>
       )}
 
-      {/* плавающая подпись темы (наведение / выбор) */}
+      {/* плавающая подпись темы (наведение / выбор).
+          Без distanceFactor: подпись держит ПОСТОЯННЫЙ px-размер — на
+          обзорной дистанции раньше сжималась до нечитаемых 3-5px */}
       {showLabel && (
         <Html
           center={false}
-          distanceFactor={9}
           position={[1.9, 0.1, 0]}
           zIndexRange={[20, 0]}
           style={{ transition: "opacity .2s", opacity: 1 }}

@@ -6,6 +6,7 @@ import { ArrowLeft, Check, X, Sparkles, Timer, Send, Flame, Zap } from "lucide-r
 import { useApp } from "@/lib/store";
 import { XP, comboMultiplier } from "@/lib/gamification";
 import { playCorrect, playWrong, playCombo } from "@/lib/sound";
+import { buzz, HAPTIC } from "@/lib/haptics";
 import { useToast } from "./Toast";
 import { ResultsScreen, type MistakeItem } from "./ResultsScreen";
 
@@ -103,6 +104,8 @@ export function Solve() {
       setFlash("correct");
       playCorrect();
       if (combo + 1 >= 2) playCombo(combo + 1);
+      // тактильный тик: обычный на верный, паттерн на комбо-веху (×3/×6/×9…)
+      if (!reduce) buzz((combo + 1) % 3 === 0 ? HAPTIC.combo : HAPTIC.correct);
     } else {
       gainXp(XP.wrong, { resetCombo: true });
       setSessionXp((x) => x + XP.wrong);
@@ -119,6 +122,7 @@ export function Solve() {
       setLastGain({ id: ++gainSeq.current, amount: XP.wrong });
       setFlash("wrong");
       playWrong();
+      if (!reduce) buzz(HAPTIC.wrong);
     }
     clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlash(null), 600);

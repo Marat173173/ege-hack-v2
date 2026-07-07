@@ -3,6 +3,8 @@
 import * as React from "react";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Html } from "@react-three/drei";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { Floor } from "./Floor";
 import { bodyHeight, GAP } from "./geometry";
 import { lockMap, floorReadiness, visibleFloors } from "@/lib/floor-build";
@@ -96,6 +98,7 @@ function CameraRig({
   focusId,
   mode,
   reduceMotion,
+  craneKey,
   spireRef,
   selectorRef,
   selectorYRef,
@@ -106,6 +109,8 @@ function CameraRig({
   focusId: string | null;
   mode: "student" | "parent";
   reduceMotion: boolean;
+  /** смена значения (предмета) запускает «крановый въезд» камеры */
+  craneKey: string;
   spireRef: React.RefObject<THREE.Group>;
   selectorRef: React.RefObject<THREE.Mesh>;
   selectorYRef: React.MutableRefObject<number>;
@@ -154,6 +159,20 @@ function CameraRig({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout.total]);
+
+  // «крановый въезд»: при входе в предмет камера стартует у ОСНОВАНИЯ и
+  // существующие лерпы сами поднимают её к обзору (~1.5с) — продаёт высоту
+  // башни. Interruptible по построению: drag/wheel юзера пишут в *T-цели,
+  // а мы трогаем только текущие значения. reduce-motion → мгновенно (как было).
+  React.useEffect(() => {
+    if (reduceMotion) return;
+    const c = controls.current;
+    c.target = 0.4;
+    c.dist = Math.max(6.5, c.distT * 0.55);
+    c.lift = 0.5;
+    yawRef.current += 0.55; // лёгкий довод по азимуту — объём, а не лифт
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [craneKey]);
 
   useFrame(({ clock }) => {
     const c = controls.current;
@@ -288,6 +307,162 @@ function makeGlowTexture(): THREE.CanvasTexture {
   return t;
 }
 
+/* ============================================================
+   SkyDome — градиент-купол неба вместо плоского фона: глубина сцены,
+   капля акцента у зенита, дизеринг против бандинга. 370 треугольников,
+   1 draw call, без текстур. В lightMode не рендерим (плоский фон дешевле).
+   ============================================================ */
+function SkyDome({
+  isLight,
+  accent,
+}: {
+  isLight: boolean;
+  accent: THREE.Color;
+}) {
+  const mat = React.useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        depthWrite: false,
+        fog: false,
+        uniforms: {
+          uTop: { value: new THREE.Color(isLight ? 0xdde5f4 : 0x111c33) },
+          uBottom: { value: new THREE.Color(isLight ? 0xc2cde0 : 0x04060d) },
+          uAccent: { value: accent.clone() },
+          uAccentI: { value: isLight ? 0.045 : 0.1 },
+        },
+        vertexShader: /* glsl */ `
+          varying vec3 vDir;
+          void main() {
+            vDir = normalize(position);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }`,
+        fragmentShader: /* glsl */ `
+          varying vec3 vDir;
+          uniform vec3 uTop; uniform vec3 uBottom; uniform vec3 uAccent; uniform float uAccentI;
+          float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+          void main() {
+            float h = clamp(vDir.y * 0.5 + 0.5, 0.0, 1.0);
+            vec3 c = mix(uBottom, uTop, pow(h, 1.4));
+            // тёплое «зарево» предмета у зенита
+            c += uAccent * uAccentI * pow(max(vDir.y, 0.0), 2.5);
+            // дизеринг: ломает полосы градиента на OLED
+            c += (hash(gl_FragCoord.xy) - 0.5) * 0.012;
+            gl_FragColor = vec4(c, 1.0);
+          }`,
+      }),
+    [isLight] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  React.useEffect(() => {
+    (mat.uniforms.uAccent.value as THREE.Color).copy(accent);
+  }, [accent, mat]);
+  React.useEffect(() => () => mat.dispose(), [mat]);
+  return (
+    <mesh material={mat} position={[0, 6, 0]} scale={[90, 90, 90]} frustumCulled={false}>
+      <sphereGeometry args={[1, 24, 16]} />
+    </mesh>
+  );
+}
+
+/** Мягкая радиальная «контактная тень» (canvas-текстура, без shadow map). */
+function makeShadowTexture(): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const x = c.getContext("2d")!;
+  const g = x.createRadialGradient(64, 64, 6, 64, 64, 64);
+  g.addColorStop(0, "rgba(0,0,0,0.55)");
+  g.addColorStop(0.55, "rgba(0,0,0,0.28)");
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  x.fillStyle = g;
+  x.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(c);
+  t.needsUpdate = true;
+  return t;
+}
+
+/* ============================================================
+   FrontierBeacon — ГЛАВНЫЙ сигнал сцены: маяк «начни здесь» над самым
+   слабым открытым этажом (тот же, что пульсирует). Один источник правды
+   с Тропой («ты здесь»). Моушен-бюджет: маяк + дрожь состояний, всё.
+   ============================================================ */
+function FrontierBeacon({
+  y,
+  accent,
+  reduceMotion,
+  hidden,
+  isLight,
+  onPick,
+  floorId,
+}: {
+  y: number; // верх этажа
+  accent: THREE.Color;
+  reduceMotion: boolean;
+  hidden: boolean; // фокус/родитель — маяк не нужен
+  isLight: boolean;
+  onPick: (id: string, x: number, cy: number) => void;
+  floorId: string;
+}) {
+  const grp = React.useRef<THREE.Group>(null);
+  const glowTex = React.useMemo(() => makeGlowTexture(), []);
+  React.useEffect(() => () => glowTex.dispose(), [glowTex]);
+
+  useFrame(({ clock }) => {
+    if (!grp.current) return;
+    const t = clock.getElapsedTime();
+    // мягкое покачивание-«поплавок»; при reduce-motion — статично
+    grp.current.position.y = y + 0.55 + (reduceMotion ? 0 : Math.sin(t * 1.6) * 0.07);
+  });
+
+  if (hidden) return null;
+  return (
+    <group ref={grp} position={[0, y + 0.55, 0]}>
+      {/* световой столбик-указатель (в светлой теме глоу выбеливает — только чип) */}
+      {!isLight && (
+        <sprite scale={[1.1, 1.6, 1]} position={[0, 0.15, 0]}>
+          <spriteMaterial
+            map={glowTex}
+            color={accent}
+            transparent
+            opacity={0.5}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+            fog={false}
+          />
+        </sprite>
+      )}
+      <Html center position={[0, 0.35, 0]} zIndexRange={[30, 0]}>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onPick(floorId, e.clientX, e.clientY);
+          }}
+          style={{
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "6px 12px",
+            minHeight: 32,
+            borderRadius: 999,
+            border: "1px solid rgb(var(--accent) / 0.55)",
+            background: "rgb(var(--bg-1) / 0.92)",
+            backdropFilter: "blur(8px)",
+            color: "rgb(var(--accent))",
+            fontFamily: "var(--mono, ui-monospace, monospace)",
+            fontSize: 11,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            boxShadow: "0 6px 22px -8px rgb(var(--accent) / 0.6)",
+          }}
+        >
+          начни здесь <span aria-hidden="true">▾</span>
+        </button>
+      </Html>
+    </group>
+  );
+}
+
 function SpireAura({
   accent,
   total,
@@ -374,6 +549,7 @@ function SpireAura({
           opacity={auraOpacity}
           depthWrite={false}
           blending={blend}
+          fog={false}
         />
       </sprite>
 
@@ -389,6 +565,7 @@ function SpireAura({
             depthWrite={false}
             blending={blend}
             sizeAttenuation
+            fog={false}
           />
         </points>
       )}
@@ -407,6 +584,7 @@ function SpireAura({
                 blending={THREE.AdditiveBlending}
                 side={THREE.DoubleSide}
                 depthWrite={false}
+                fog={false}
               />
             </mesh>
           );
@@ -419,6 +597,8 @@ function SpireAura({
 function Pedestal({ accent, dim, isLight }: { accent: THREE.Color; dim: boolean; isLight: boolean }) {
   const ringRef = React.useRef<THREE.Mesh>(null);
   const glowRef = React.useRef<THREE.Mesh>(null);
+  const shadowTex = React.useMemo(() => makeShadowTexture(), []);
+  React.useEffect(() => () => shadowTex.dispose(), [shadowTex]);
   const glowMax = isLight ? 0.0 : 0.22; // на светлом гало почти убираем
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
@@ -430,6 +610,17 @@ function Pedestal({ accent, dim, isLight }: { accent: THREE.Color; dim: boolean;
   });
   return (
     <group position={[0, -0.62, 0]}>
+      {/* контактная тень: заземляет башню БЕЗ shadow map (критично в светлой) */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]}>
+        <circleGeometry args={[2.35, 48]} />
+        <meshBasicMaterial
+          map={shadowTex}
+          transparent
+          opacity={isLight ? 0.42 : 0.5}
+          depthWrite={false}
+          fog={false}
+        />
+      </mesh>
       {/* диск-основание (на светлом — чуть плотнее, как «тень-подложка») */}
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[3.0, 64]} />
@@ -516,13 +707,37 @@ function SpireContent({
   const accent = useAccentColor(subjectKey);
   const st = React.useMemo(() => sceneTheme(theme), [theme]);
   const isLight = theme === "light";
-  const { scene } = useThree();
+  const { scene, gl } = useThree();
   const dimAura = mode === "parent" || !!focusId;
 
   // фон сцены по теме
   React.useEffect(() => {
     scene.background = new THREE.Color(st.bg);
   }, [scene, st]);
+
+  // IBL: процедурная env-карта (RoomEnvironment, без файлов-ассетов) —
+  // metalness этажей начинает ловить отражения вместо «мёртвого пластика».
+  // Дорого только на генерации (~30мс один раз); low-tier/lightMode — без IBL.
+  React.useEffect(() => {
+    if (tier === "low" || lightMode) {
+      scene.environment = null;
+      return;
+    }
+    const pmrem = new THREE.PMREMGenerator(gl);
+    const env = pmrem.fromScene(new RoomEnvironment(), 0.04);
+    scene.environment = env.texture;
+    pmrem.dispose();
+    return () => {
+      env.texture.dispose();
+      scene.environment = null;
+    };
+  }, [scene, gl, tier, lightMode]);
+
+  // маяк «начни здесь» — над самым слабым ОТКРЫТЫМ этажом (виден в кадре)
+  const beaconMeta = React.useMemo(
+    () => (weakestId ? layout.metas.find((m) => m.floor.id === weakestId) ?? null : null),
+    [layout, weakestId]
+  );
 
   const spireRef = React.useRef<THREE.Group>(null);
   const selectorRef = React.useRef<THREE.Mesh>(null);
@@ -537,7 +752,6 @@ function SpireContent({
   // актуальная высота башни для клампа панорамирования (без ре-биндинга слушателей)
   const totalRef = React.useRef(layout.total);
   totalRef.current = layout.total;
-  const { gl } = useThree();
 
   // селектор следует за выбранным этажом
   React.useEffect(() => {
@@ -639,6 +853,8 @@ function SpireContent({
   return (
     <>
       <fogExp2 attach="fog" args={[st.fog, st.fogDensity]} />
+      {/* купол неба: глубина + зарево предмета (lightMode — плоский фон) */}
+      {!lightMode && <SkyDome isLight={isLight} accent={accent} />}
       <Lights accent={accent} st={st} light={isLight} />
       <Stars tier={tier} lightMode={lightMode} reduceMotion={reduceMotion} color={st.starColor} />
 
@@ -677,6 +893,20 @@ function SpireContent({
           />
         ))}
 
+        {/* маяк «начни здесь» — главный сигнал сцены (вращается со Шпилём,
+            как и его этаж; скрыт в фокусе/родителе) */}
+        {beaconMeta && (
+          <FrontierBeacon
+            y={beaconMeta.baseY + bodyHeight(beaconMeta.floor.geom) / 2}
+            accent={accent}
+            reduceMotion={reduceMotion}
+            hidden={dimAura}
+            isLight={isLight}
+            onPick={onPick}
+            floorId={beaconMeta.floor.id}
+          />
+        )}
+
         {/* акцентный ореол + частицы + лучи (вращаются вместе со Шпилем) */}
         <SpireAura
           accent={accent}
@@ -694,6 +924,7 @@ function SpireContent({
         focusId={focusId}
         mode={mode}
         reduceMotion={reduceMotion}
+        craneKey={subjectKey}
         spireRef={spireRef}
         selectorRef={selectorRef}
         selectorYRef={selectorYRef}

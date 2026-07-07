@@ -18,11 +18,39 @@ import { PathScreen } from "./PathScreen";
 import { MobileSheets } from "./MobileSheets";
 import { useToast } from "./Toast";
 
-// 3D грузим лениво и только на клиенте (bundle Three.js/R3F не тащим в SSR)
+// 3D грузим лениво и только на клиенте (bundle Three.js/R3F не тащим в SSR).
+// Пока бандл едет по сети — силуэт-скелетон Шпиля вместо чёрной пустоты.
 const SpireScene = dynamic(
   () => import("@/components/spire/SpireScene").then((m) => m.SpireScene),
-  { ssr: false }
+  { ssr: false, loading: () => <SpireLoader /> }
 );
+
+/** Скелетон загрузки 3D: пульсирующий силуэт башни + подпись. */
+function SpireLoader() {
+  return (
+    <div className="fixed inset-0 z-0 grid place-items-center bg-bg-0" aria-hidden="true">
+      <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col-reverse items-center gap-1.5">
+          {[64, 52, 40, 30, 20].map((w, i) => (
+            <div
+              key={i}
+              className="animate-pulse rounded"
+              style={{
+                width: w,
+                height: 10,
+                background: "rgb(var(--accent) / 0.35)",
+                animationDelay: `${i * 120}ms`,
+              }}
+            />
+          ))}
+        </div>
+        <div className="font-mono text-[11px] uppercase tracking-wider text-mid">
+          Строим твой Шпиль…
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function SpireScreen() {
   const subject = useApp((s) => s.subject());
