@@ -88,7 +88,11 @@ export function Inspector() {
   const isMobile = useIsMobile();
   const dragControls = useDragControls();
 
-  const visible = mode === "parent" || !!selectedId;
+  const modal = useApp((s) => s.modal);
+  // пока открыта модалка (урок/разбор) — Инспектор прячется: иначе его скрим
+  // (0.42+blur) складывается со скримом модалки (0.58+blur) → «прозрачность
+  // ×2», фон в двойном мыле. Закрыл модалку → шит вернулся (selectedId жив).
+  const visible = (mode === "parent" || !!selectedId) && !modal;
 
   const onSheetDragEnd = (_: unknown, info: PanInfo) => {
     if (info.offset.y > 110 || info.velocity.y > 600) closeInspector();

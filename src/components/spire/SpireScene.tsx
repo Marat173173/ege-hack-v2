@@ -491,27 +491,30 @@ function FrontierBeacon({
     if (!grp.current) return;
     const t = clock.getElapsedTime();
     // мягкое покачивание-«поплавок»; при reduce-motion — статично
-    grp.current.position.y = y + 0.55 + (reduceMotion ? 0 : Math.sin(t * 1.6) * 0.07);
+    // якорь — ЦЕНТР этажа (как замочки): зазор между этажами всего 0.16,
+    // любой заметный подъём визуально «переклеивает» чип на этаж выше
+    grp.current.position.y = y + (reduceMotion ? 0 : Math.sin(t * 1.6) * 0.05);
   });
 
   if (hidden) return null;
   return (
-    <group ref={grp} position={[0, y + 0.55, 0]}>
-      {/* световой столбик-указатель (в светлой теме глоу выбеливает — только чип) */}
+    <group ref={grp} position={[0, y, 0]}>
+      {/* мягкое гало за чипом (в светлой теме глоу выбеливает — только чип) */}
       {!isLight && (
-        <sprite scale={[1.1, 1.6, 1]} position={[0, 0.15, 0]}>
+        <sprite scale={[1.5, 1.5, 1]} position={[0, 0, -0.15]}>
           <spriteMaterial
             map={glowTex}
             color={accent}
             transparent
-            opacity={0.5}
+            opacity={0.4}
             depthWrite={false}
             blending={THREE.AdditiveBlending}
             fog={false}
           />
         </sprite>
       )}
-      <Html center position={[0, 0.35, 0]} zIndexRange={[30, 0]}>
+      {/* чип по ЦЕНТРУ этажа — однозначная привязка (паттерн замочков) */}
+      <Html center position={[0, 0, 0]} zIndexRange={[30, 0]}>
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -785,17 +788,18 @@ function SpireContent({
     return id;
   }, [subject.floors, locks]);
 
-  // «фронтир» — верхний открытый НЕпройденный этаж («где продолжать»):
-  // от самого верхнего открытого вниз до первого не-монолита. Если всё
-  // пройдено — сам верхний открытый. Именно сюда указывает маяк «начни
-  // здесь» (weakestId остаётся для пульса самого слабого этажа).
+  // «фронтир» — ПЕРВЫЙ СНИЗУ открытый непройденный этаж: башня строится
+  // снизу вверх, «начни здесь» = следующая тема по порядку (фидбек владельца:
+  // скан сверху ставил маяк на 2-ю тему при непройденной 1-й). Если все
+  // открытые пройдены — верхний открытый (там откроется продолжение).
   const frontierId = React.useMemo(() => {
     if (subject.floors.length === 0) return null;
-    const top = highestOpenIndex(subject.floors);
-    for (let i = top; i >= 0; i--) {
-      if (!locks[i] && floorState(subject.floors[i]) !== "solid") return subject.floors[i].id;
+    for (let i = 0; i < subject.floors.length; i++) {
+      if (locks[i]) break; // выше только закрытые — дальше смысла нет
+      if (floorState(subject.floors[i]) !== "solid") return subject.floors[i].id;
     }
-    return subject.floors[top].id;
+    const top = highestOpenIndex(subject.floors);
+    return subject.floors[top]?.id ?? null;
   }, [subject.floors, locks]);
 
   const accent = useAccentColor(subjectKey);
@@ -1011,7 +1015,7 @@ function SpireContent({
             как и его этаж; скрыт в фокусе/родителе) */}
         {beaconMeta && (
           <FrontierBeacon
-            y={beaconMeta.baseY + bodyHeight(beaconMeta.floor.geom) / 2}
+            y={beaconMeta.baseY}
             accent={accent}
             reduceMotion={reduceMotion}
             hidden={dimAura}
