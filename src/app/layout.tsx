@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { fontVars } from "./fonts";
 import "./globals.css";
-import { TutorFAB } from "@/components/tutor/TutorFAB";
 
 export const metadata: Metadata = {
   title: "ЕГЭ-ХАК · Взломай экзамен",
@@ -27,8 +26,9 @@ export default function RootLayout({
   return (
     <html lang="ru" data-theme="dark" className={fontVars} suppressHydrationWarning>
       <body>
+        {/* кнопка ИИ-репетитора теперь контекстная — её рендерит Inspector
+            над шитом открытой темы (только Шпиль/Тропа + открытый модуль) */}
         {children}
-        <TutorFAB />
       </body>
     </html>
   );

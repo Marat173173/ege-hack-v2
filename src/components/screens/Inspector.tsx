@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import { AnimatePresence, motion, useDragControls, type PanInfo } from "framer-motion";
-import { X, Dumbbell, Timer, ScanLine, Sparkles, GraduationCap } from "lucide-react";
+import { X, Dumbbell, Timer, ScanLine, Sparkles, GraduationCap, FlaskConical } from "lucide-react";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
+import { TutorFAB } from "@/components/tutor/TutorFAB";
 import { useApp } from "@/lib/store";
 import { useIsMobile } from "@/lib/use-media";
 import { floorState, STATE_META } from "@/lib/floor-state";
@@ -83,6 +84,7 @@ export function Inspector() {
   const closeInspector = useApp((s) => s.closeInspector);
   const openSolve = useApp((s) => s.openSolve);
   const openModal = useApp((s) => s.openModal);
+  const bump = useApp((s) => s.bump);
   const isMobile = useIsMobile();
   const dragControls = useDragControls();
 
@@ -176,6 +178,19 @@ export function Inspector() {
                   </div>
                 )}
 
+                {/* ⚠️ ВРЕМЕННО (тест Шпиля): мгновенно засчитывает модуль
+                    пройденным (prog/stab → 100, этаж твердеет, гейтинг
+                    открывает следующие). Удалить перед продом. */}
+                <button
+                  onClick={() => {
+                    bump(floor.id, 100, 100);
+                    closeInspector();
+                  }}
+                  className="focus-ring mt-3 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-dashed border-warn/50 bg-warn/[0.06] px-4 py-3 text-[12.5px] font-semibold text-warn transition-colors hover:bg-warn/[0.12]"
+                >
+                  <FlaskConical size={15} /> Прошёл модуль (тест)
+                </button>
+
                 {/* Подтемы кодификатора ФИПИ 2026 — открывают ИИ-репетитора по конкретной теме */}
                 <FipiSubtopics floorId={floor.id} />
       </>
@@ -201,7 +216,7 @@ export function Inspector() {
             }}
           >
             <motion.div
-              className="w-full"
+              className="relative w-full"
               drag="y"
               dragControls={dragControls}
               dragListener={false}
@@ -213,6 +228,8 @@ export function Inspector() {
               exit={{ y: "100%" }}
               transition={{ type: "spring", stiffness: 320, damping: 34 }}
             >
+              {/* ИИ-репетитор — над окошком модуля, с фильтром открытой темы */}
+              {mode !== "parent" && floor && <TutorFAB topic={floor.id} />}
               <div
                 className="relative z-[1] overflow-hidden rounded-t-2xl border border-b-0 border-[rgb(var(--glass-hi)/var(--glass-border-a))]"
                 style={{

@@ -35,8 +35,8 @@ export function TopBar() {
   return (
     <>
       {/* left: brand + subject tabs.
-          На мобилке слева сверху стоит бургер (из MobileBottomBar) — отступаем
-          вправо, чтобы пилюля предмета не налезала на него. */}
+          На мобилке слева сверху стоит чип готовности (из SpireScreen) —
+          отступаем вправо, чтобы пилюля предмета не налезала на него. */}
       <div
         className="pointer-events-auto fixed left-2 top-2 z-[4] flex max-w-[calc(100%-180px)] flex-nowrap items-center gap-2 pl-[74px] md:left-4 md:top-4 md:max-w-[calc(100%-16px)] md:flex-wrap md:gap-3 md:pl-0"
         style={{ top: "max(0.5rem, env(safe-area-inset-top))" }}
