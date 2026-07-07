@@ -8,6 +8,7 @@ import { useApp } from "@/lib/store";
 import { detectTier, type Tier } from "@/lib/device-tier";
 import { isLocked, unlockGap, highestOpenIndex, overallReadiness } from "@/lib/floor-build";
 import { PixelBloom, type BloomTrigger } from "@/components/spire/PixelBloom";
+import { SpireRail } from "@/components/spire/SpireRail";
 import { useIsMobile } from "@/lib/use-media";
 import { TopBar } from "./TopBar";
 import { Console } from "./Console";
@@ -149,6 +150,9 @@ export function SpireScreen() {
           />
 
           <PixelBloom trigger={bloom} disabled={reduceMotion || lightMode} />
+
+          {/* мини-карта башни («панель лифта») — DOM, вне canvas */}
+          <SpireRail />
 
           {/* фокус-скрим + виньетка (цвет затемнения берётся из темы) */}
           <div

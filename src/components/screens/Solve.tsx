@@ -28,6 +28,7 @@ export function Solve() {
   const gainXp = useApp((s) => s.gainXp);
   const resetCombo = useApp((s) => s.resetCombo);
   const combo = useApp((s) => s.game.combo);
+  const lightMode = useApp((s) => s.lightMode);
   const toast = useToast();
   const reduce = useReducedMotion();
 
@@ -172,6 +173,21 @@ export function Solve() {
 
   return (
     <div className="relative min-h-[100dvh] w-full overflow-hidden bg-bg-0">
+      {/* комбо-жар: янтарная виньетка по краям нарастает с серией
+          (CSS-transition, 0 JS в кадре; гаснет в lightMode/reduce) */}
+      {!lightMode && !reduce && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0 z-10"
+          style={{
+            opacity: Math.min(combo, 9) / 30,
+            transition: "opacity 0.5s ease",
+            background:
+              "radial-gradient(120% 100% at 50% 50%, transparent 58%, rgb(var(--accent) / 0.5) 135%)",
+          }}
+        />
+      )}
+
       {/* экранная вспышка — зелёная (верно) / мягкая красная (мимо) */}
       <AnimatePresence>
         {flash && !reduce && (

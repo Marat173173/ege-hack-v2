@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { levelFromXp } from "@/lib/gamification";
+import { playCelebrate } from "@/lib/sound";
+import { buzz, HAPTIC } from "@/lib/haptics";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
 
 /**
@@ -154,6 +156,25 @@ function ScoreRing({
 
 /* ────────────────────────────── СТАТ-ТАЙЛ ────────────────────────────── */
 
+/** Каунт-ап числа XP — цифры «набегают», а не появляются (Duolingo-тик). */
+function CountUpXp({ to, reduce }: { to: number; reduce: boolean | null }) {
+  const [v, setV] = React.useState(reduce ? to : 0);
+  React.useEffect(() => {
+    if (reduce) {
+      setV(to);
+      return;
+    }
+    const c = animate(0, to, {
+      duration: 0.7,
+      ease: "easeOut",
+      delay: 0.35,
+      onUpdate: (x) => setV(Math.round(x)),
+    });
+    return () => c.stop();
+  }, [to, reduce]);
+  return <>+{v}</>;
+}
+
 function StatTile({
   icon: Icon,
   value,
@@ -162,7 +183,7 @@ function StatTile({
   reduce,
 }: {
   icon: typeof Zap;
-  value: string;
+  value: React.ReactNode;
   label: string;
   delay: number;
   reduce: boolean | null;
@@ -208,6 +229,16 @@ export function ResultsScreen({
   const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
   const ss = String(seconds % 60).padStart(2, "0");
 
+  // празднование сильного результата — раньше экран был полностью беззвучен
+  React.useEffect(() => {
+    if (pct >= 80) {
+      playCelebrate();
+      if (!reduce) buzz(HAPTIC.celebrate);
+    }
+    // один раз на маунт — результат сессии не меняется
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const rise = (delay: number) =>
     reduce
       ? { initial: false as const, animate: { opacity: 1, y: 0 } }
@@ -228,6 +259,20 @@ export function ResultsScreen({
         {/* HERO: кольцо + прогноз + вердикт */}
         <motion.div {...rise(0.05)}>
           <LiquidGlass sheen className="flex flex-col items-center gap-3 rounded-2xl px-5 py-6">
+            {/* штамп-вердикт: влетает как печать (Alfa Slab, наклон, spring) */}
+            <motion.div
+              initial={reduce ? false : { opacity: 0, scale: 2.4, rotate: -12 }}
+              animate={{ opacity: 1, scale: 1, rotate: -4 }}
+              transition={{ delay: 0.55, type: "spring", stiffness: 500, damping: 20 }}
+              className="pointer-events-none absolute right-3 top-3 z-[1] rounded-lg border-2 px-2.5 py-1 font-serif text-[13px] uppercase tracking-wider"
+              style={{
+                borderColor: v.color,
+                color: v.color,
+                background: "rgb(var(--bg-1) / 0.55)",
+              }}
+            >
+              {pct >= 80 ? "Отлично" : pct >= 50 ? "Зачёт" : "Разберём"}
+            </motion.div>
             <ScoreRing pct={pct} correct={correct} total={total} color={v.color} />
 
             {/* балл диапазоном (наш «диапазон прогноза») */}
@@ -259,7 +304,13 @@ export function ResultsScreen({
 
         {/* РЯД СТАТ */}
         <div className="flex gap-2.5">
-          <StatTile icon={Zap} value={`+${xpGained}`} label="XP" delay={0.12} reduce={reduce} />
+          <StatTile
+            icon={Zap}
+            value={<CountUpXp to={xpGained} reduce={reduce} />}
+            label="XP"
+            delay={0.12}
+            reduce={reduce}
+          />
           <StatTile icon={Flame} value={String(streak)} label="Стрик" delay={0.18} reduce={reduce} />
           <StatTile icon={Timer} value={`${mm}:${ss}`} label="Время" delay={0.24} reduce={reduce} />
         </div>

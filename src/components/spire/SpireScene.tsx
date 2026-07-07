@@ -4,6 +4,7 @@ import * as React from "react";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { Floor } from "./Floor";
 import { bodyHeight, GAP } from "./geometry";
@@ -942,14 +943,27 @@ export function SpireScene(props: SpireProps) {
     : props.tier === "high"
     ? [1, 2]
     : [1, 1.5];
+  // selective bloom: ТОЛЬКО high-tier + тёмная тема + не lightMode
+  // (единственный дорогой эффект роадмапа; на светлой теме выбеливает).
+  // При активном composer MSAA выключаем — двойная плата за сглаживание.
+  const bloomOn = props.tier === "high" && !props.lightMode && props.theme === "dark";
   return (
     <Canvas
       dpr={dpr}
-      gl={{ antialias: props.tier === "high", alpha: true, powerPreference: "high-performance" }}
+      gl={{
+        antialias: props.tier === "high" && !bloomOn,
+        alpha: true,
+        powerPreference: "high-performance",
+      }}
       camera={{ fov: 46, near: 0.1, far: 200, position: [0, 6, 13.5] }}
       style={{ position: "fixed", inset: 0, zIndex: 0, touchAction: "none", cursor: "grab" }}
     >
       <SpireContent {...props} />
+      {bloomOn && (
+        <EffectComposer multisampling={0}>
+          <Bloom mipmapBlur luminanceThreshold={0.75} luminanceSmoothing={0.2} intensity={0.7} />
+        </EffectComposer>
+      )}
     </Canvas>
   );
 }
