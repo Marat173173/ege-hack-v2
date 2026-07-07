@@ -221,10 +221,10 @@ export function Inspector() {
               className="absolute inset-0"
               onMouseDown={closeInspector}
               style={{
-                background: "rgb(var(--scrim) / 0.42)",
-                // только мягкий расфокус (без brightness)
-                backdropFilter: "blur(12px) saturate(120%)",
-                WebkitBackdropFilter: "blur(12px) saturate(120%)",
+                // без backdrop-filter (iOS «мылит» контент над фильтром) —
+                // плотный скрим-виньетка вместо фрост-блюра
+                background:
+                  "radial-gradient(circle at 50% 60%, rgb(var(--scrim) / 0.5), rgb(var(--scrim) / 0.82))",
               }}
             />
             <motion.div

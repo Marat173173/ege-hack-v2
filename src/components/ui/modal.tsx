@@ -45,7 +45,9 @@ export const Modal = ({
   draggable = true,
 }: ModalProps) => {
   const isMobile = useIsMobile();
-  const scrim = colors.scrim ?? "rgb(var(--scrim) / 0.58)";
+  const scrim =
+    colors.scrim ??
+    "radial-gradient(circle at 50% 40%, rgb(var(--scrim) / 0.62), rgb(var(--scrim) / 0.86))";
   const border = colors.border ?? "rgb(var(--glass-hi) / var(--glass-border-a))";
   const closeFg = colors.closeFg ?? "rgb(var(--mid))";
   const closeHoverBg = colors.closeHoverBg ?? "rgb(var(--glass-hi) / 0.1)";
@@ -234,11 +236,10 @@ export const Modal = ({
             style={{
               position: "absolute",
               inset: 0,
+              // СПЛОШНОЙ скрим БЕЗ backdrop-filter: на iOS Safari backdrop-filter
+              // «протекал» на панель ПОВЕРХ него (контент модалки в мыле, что и
+              // видел владелец). Нет фильтра — нет бага; сцену гасит градиент.
               background: scrim,
-              // только мягкий расфокус фона — БЕЗ brightness: сцена и так тёмная,
-              // затемнение делало экран почти чёрным
-              backdropFilter: "blur(12px) saturate(120%)",
-              WebkitBackdropFilter: "blur(12px) saturate(120%)",
             }}
           />
           {isMobile ? (

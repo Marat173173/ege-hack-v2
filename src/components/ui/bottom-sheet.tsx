@@ -51,10 +51,10 @@ export function BottomSheet({
           aria-label={label}
           className="fixed inset-0 z-[58] flex items-end justify-center"
           style={{
-            background: "rgb(var(--scrim) / 0.42)",
-            // только мягкий расфокус (без brightness — иначе почти чёрный экран)
-            backdropFilter: "blur(12px) saturate(120%)",
-            WebkitBackdropFilter: "blur(12px) saturate(120%)",
+            // без backdrop-filter: iOS-баг «мыла» на дочернем шите (blur на
+            // родителе панели размывает саму панель) — плотный скрим-виньетка
+            background:
+              "radial-gradient(circle at 50% 62%, rgb(var(--scrim) / 0.48), rgb(var(--scrim) / 0.8))",
           }}
         >
           <motion.div
