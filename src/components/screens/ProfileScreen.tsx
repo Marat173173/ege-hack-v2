@@ -43,8 +43,8 @@ function Section({
 
 function Stat({ value, label, color }: { value: React.ReactNode; label: string; color?: string }) {
   return (
-    <div className="rounded-xl border border-line bg-[rgb(var(--glass-hi)/0.02)] p-3 text-center">
-      <div className="font-mono text-[22px] font-extrabold leading-none" style={{ color: color ?? "rgb(var(--hi))" }}>
+    <div className="min-w-0 overflow-hidden rounded-xl border border-line bg-[rgb(var(--glass-hi)/0.02)] p-3 text-center">
+      <div className="whitespace-nowrap font-mono text-[22px] font-extrabold leading-none" style={{ color: color ?? "rgb(var(--hi))" }}>
         {value}
       </div>
       <div className="mt-1.5 hud-label text-[10px] text-lo">{label}</div>
@@ -71,6 +71,29 @@ export function ProfileScreen() {
   // редактор дневной цели: пресеты-чипы + точная настройка степпером
   const [tuning, setTuning] = React.useState(false);
   const isPresetGoal = DAILY_GOAL_PRESETS.some((p) => p.xp === game.dailyGoal);
+
+  // активный чип цели всегда в видимой области скролл-ряда
+  const goalGroupRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    goalGroupRef.current
+      ?.querySelector('[aria-checked="true"]')
+      ?.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" });
+  }, [game.dailyGoal, isPresetGoal]);
+
+  // клавиатурная модель радиогруппы (APG): стрелки двигают выбор по кругу
+  function onGoalKeyDown(e: React.KeyboardEvent) {
+    if (!["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"].includes(e.key)) return;
+    e.preventDefault();
+    const radios = Array.from(
+      goalGroupRef.current?.querySelectorAll<HTMLButtonElement>('[role="radio"]') ?? []
+    );
+    if (!radios.length) return;
+    const cur = radios.findIndex((r) => r === document.activeElement);
+    const dir = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : -1;
+    const next = radios[(Math.max(cur, 0) + dir + radios.length) % radios.length];
+    next.focus();
+    next.click();
+  }
 
   const lvl = levelProgress(game.xp);
   const days = daysToExam(profile.examDate);
@@ -222,7 +245,8 @@ export function ProfileScreen() {
 
           <div className="grid grid-cols-3 gap-2">
             <Stat value={<><Flame size={16} className="inline -translate-y-0.5 text-warn" /> {game.streak}</>} label="Серия дней" />
-            <Stat value={<>{game.dailyXp}<span className="text-lo">/{game.dailyGoal}</span></>} label="Цель сегодня" />
+            {/* знаменатель мельче — «150/150» не переполняет ячейку на 320px */}
+            <Stat value={<>{game.dailyXp}<span className="text-[13px] text-lo">/{game.dailyGoal}</span></>} label="Цель сегодня" />
             <Stat value={game.bestCombo} label="Лучшее комбо" color="#FF5C6E" />
           </div>
 
@@ -242,12 +266,32 @@ export function ProfileScreen() {
               </button>
             </div>
 
-            {/* пресеты темпа */}
+            {/* пресеты темпа: роверный tabIndex + стрелки; правый fade — намёк на скролл */}
             <div
+              ref={goalGroupRef}
               role="radiogroup"
               aria-label="Темп занятий"
+              onKeyDown={onGoalKeyDown}
               className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]"
+              style={{
+                maskImage: "linear-gradient(to right, black calc(100% - 28px), transparent)",
+                WebkitMaskImage: "linear-gradient(to right, black calc(100% - 28px), transparent)",
+              }}
             >
+              {/* «Своя» — настоящий radio В НАЧАЛЕ ряда (не исчезает за краем) */}
+              {!isPresetGoal && (
+                <button
+                  role="radio"
+                  aria-checked={true}
+                  tabIndex={0}
+                  onClick={() => setTuning(true)}
+                  aria-label={`Своя цель, ${game.dailyGoal} XP — настроить`}
+                  className="focus-ring flex min-h-[44px] shrink-0 flex-col items-center justify-center rounded-xl border border-accent bg-accent/[0.12] px-3.5 py-2"
+                >
+                  <span className="text-[12px] font-semibold text-accent">Своя</span>
+                  <span className="font-mono text-[10px] text-mid">{game.dailyGoal} XP</span>
+                </button>
+              )}
               {DAILY_GOAL_PRESETS.map((p) => {
                 const on = game.dailyGoal === p.xp;
                 return (
@@ -255,6 +299,7 @@ export function ProfileScreen() {
                     key={p.xp}
                     role="radio"
                     aria-checked={on}
+                    tabIndex={on ? 0 : -1}
                     onClick={() => setDailyGoal(p.xp)}
                     className="focus-ring flex min-h-[44px] shrink-0 flex-col items-center justify-center rounded-xl border px-3.5 py-2 transition-colors"
                     style={{
@@ -274,13 +319,6 @@ export function ProfileScreen() {
                   </button>
                 );
               })}
-              {/* значение вне пресетов (настроено степпером) — подсветка не теряется */}
-              {!isPresetGoal && (
-                <span className="flex min-h-[44px] shrink-0 flex-col items-center justify-center rounded-xl border border-accent bg-accent/[0.12] px-3.5 py-2">
-                  <span className="text-[12px] font-semibold text-accent">Своя</span>
-                  <span className="font-mono text-[10px] text-mid">{game.dailyGoal} XP</span>
-                </span>
-              )}
             </div>
 
             {/* точная настройка: −/+ шагом 10, границы 10..500 (clamp в сторе) */}

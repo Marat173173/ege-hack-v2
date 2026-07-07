@@ -156,11 +156,13 @@ function Bubble({
   const baseLeft = ((col + 0.5) / cols) * 100;
   const baseTop = ((row + 0.5) / Math.max(1, rows)) * 76 + 12; // 12%..88%
 
-  // лёгкий детерминированный сдвиг старта
+  // лёгкий детерминированный сдвиг старта.
+  // Клампы 25..75 / 15..80 учитывают дрейф до ±66px + радиус пузыря:
+  // краевой пузырь не выносится дрейфом за overflow-hidden оверлея.
   const jx = (rand(index + 1) - 0.5) * 14;
   const jy = (rand(index + 2) - 0.5) * 12;
-  const left = Math.min(86, Math.max(14, baseLeft + jx));
-  const top = Math.min(88, Math.max(14, baseTop + jy));
+  const left = Math.min(75, Math.max(25, baseLeft + jx));
+  const top = Math.min(80, Math.max(15, baseTop + jy));
 
   // амплитуды и длительность дрейфа — у каждого свои, отсюда «хаос»
   // амплитуды и длительность дрейфа — у каждого свои, отсюда «хаос».
