@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { SUBJECTS, LIVE_KEYS, type Subject } from "@/data/catalog";
 import { floorState } from "@/lib/floor-state";
-import { DEFAULT_GAME, award, rolloverDay, type GameState } from "@/lib/gamification";
+import { DEFAULT_GAME, award, rolloverDay, clampDailyGoal, type GameState } from "@/lib/gamification";
 import { DEFAULT_PROFILE, type Profile } from "@/lib/profile";
 
 type Mode = "student" | "parent";
@@ -78,6 +78,7 @@ interface AppState {
   ensureDay: () => void;
   gainXp: (amount: number, opts?: { correct?: boolean; resetCombo?: boolean }) => void;
   resetCombo: () => void;
+  setDailyGoal: (goal: number) => void;
   dismissCelebration: () => void;
 
   // профиль
@@ -279,6 +280,17 @@ export const useApp = create<AppState>((set, get) => ({
     set((st) => {
       if (st.game.combo === 0) return {};
       const g = { ...st.game, combo: 0 };
+      saveGame(g);
+      return { game: g };
+    }),
+
+  // Пользователь меняет дневную цель (темп у всех разный). Только clamp + persist;
+  // award()/celebration НЕ дёргаем — смена цели не «достигает» её сама по себе.
+  setDailyGoal: (goal) =>
+    set((st) => {
+      const dailyGoal = clampDailyGoal(goal);
+      if (dailyGoal === st.game.dailyGoal) return {};
+      const g = { ...st.game, dailyGoal };
       saveGame(g);
       return { game: g };
     }),
