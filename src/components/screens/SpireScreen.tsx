@@ -178,7 +178,8 @@ export function SpireScreen() {
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="pointer-events-none fixed bottom-[150px] left-1/2 z-[3] -translate-x-1/2 whitespace-nowrap rounded-full border border-line bg-panel px-4 py-2 font-mono text-[10px] uppercase tracking-wide text-lo backdrop-blur-md md:bottom-[88px]"
+            style={{ x: "-50%" }} // framer-y клобберит tailwind-translate
+            className="pointer-events-none fixed bottom-[150px] left-1/2 z-[3] whitespace-nowrap rounded-full border border-line bg-panel px-4 py-2 font-mono text-[10px] uppercase tracking-wide text-lo backdrop-blur-md md:bottom-[88px]"
           >
             <span className="hidden md:inline">Тяни — повернуть · колесо — приблизить · </span>
             <span className="text-accent">нажми этаж</span>
@@ -194,8 +195,8 @@ export function SpireScreen() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             onClick={closeInspector}
-            style={{ top: "calc(env(safe-area-inset-top) + 56px)" }}
-            className="liquid-glass focus-ring fixed left-1/2 z-[5] flex min-h-[44px] -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-hi"
+            style={{ top: "calc(env(safe-area-inset-top) + 56px)", x: "-50%" }}
+            className="liquid-glass focus-ring fixed left-1/2 z-[5] flex min-h-[44px] items-center gap-2 rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-hi"
           >
             <ArrowLeft size={13} /> к Шпилю
           </motion.button>

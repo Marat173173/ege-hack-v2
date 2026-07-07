@@ -259,8 +259,10 @@ export function PathScreen() {
                       <motion.div
                         initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="absolute -top-6 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide"
-                        style={{ background: nodeHue, color: "#0a0e18" }}
+                        className="absolute -top-6 left-1/2 z-10 whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide"
+                        // x через framer: animate({y}) перезаписывает transform,
+                        // tailwind -translate-x-1/2 терялся → чип уезжал вправо
+                        style={{ x: "-50%", background: nodeHue, color: "#0a0e18" }}
                       >
                         ты здесь
                       </motion.div>
@@ -270,8 +272,10 @@ export function PathScreen() {
                     {isCurrent && !reduce && (
                       <motion.span
                         aria-hidden="true"
-                        className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 rounded-full"
-                        style={{ width: 58, height: 58, border: `2.5px solid ${nodeHue}` }}
+                        className="pointer-events-none absolute left-1/2 top-0 rounded-full"
+                        // x через framer: animate({scale}) клобберил -translate-x-1/2 —
+                        // кольцо «контурило» правее узла на полширины
+                        style={{ x: "-50%", width: 58, height: 58, border: `2.5px solid ${nodeHue}` }}
                         animate={{ scale: [1, 1.55], opacity: [0.55, 0] }}
                         transition={{ duration: 1.7, repeat: Infinity, ease: "easeOut" }}
                       />
