@@ -365,6 +365,82 @@ function SkyDome({
   );
 }
 
+/* ============================================================
+   SpireFrame — «чертёжный каркас» башни ДЛЯ СВЕТЛОЙ ТЕМЫ.
+   В тёмной вертикаль склеивают глоу/лучи/частицы; на светлом фоне они
+   выключены и этажи повисают «бубликами». Каркас в языке светлой темы
+   (чернила/blueprint): центральная мачта с навершием-шпилем + три
+   пунктирные направляющие, к которым «закреплены» этажи.
+   Статика, 3 draw call'а — ок на всех тирах и в lightMode.
+   ============================================================ */
+function SpireFrame({
+  total,
+  isLight,
+  dim,
+  accent,
+}: {
+  total: number;
+  isLight: boolean;
+  dim: boolean;
+  accent: THREE.Color;
+}) {
+  const STEEL = 0x46587f; // чернильный сине-стальной (тон --line)
+
+  // 3 вертикальные пунктирные направляющие по периметру (чертёж)
+  const guides = React.useMemo(() => {
+    const pts: THREE.Vector3[] = [];
+    const R = 2.08;
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2 + 0.4;
+      pts.push(
+        new THREE.Vector3(Math.cos(a) * R, -0.55, Math.sin(a) * R),
+        new THREE.Vector3(Math.cos(a) * R, total + 0.55, Math.sin(a) * R)
+      );
+    }
+    const g = new THREE.BufferGeometry().setFromPoints(pts);
+    const m = new THREE.LineDashedMaterial({
+      color: STEEL,
+      transparent: true,
+      opacity: 0.5,
+      dashSize: 0.14,
+      gapSize: 0.11,
+      fog: false,
+    });
+    const l = new THREE.LineSegments(g, m);
+    l.computeLineDistances(); // без этого LineDashedMaterial рисует сплошную
+    return l;
+  }, [total]);
+  React.useEffect(
+    () => () => {
+      guides.geometry.dispose();
+      (guides.material as THREE.Material).dispose();
+    },
+    [guides]
+  );
+  // фокус/родитель — каркас притухает вместе с ауройй
+  React.useEffect(() => {
+    (guides.material as THREE.LineDashedMaterial).opacity = dim ? 0.2 : 0.5;
+  }, [guides, dim]);
+
+  if (!isLight) return null; // тёмной теме хватает глоу — не трогаем
+
+  return (
+    <group>
+      {/* центральная мачта — ось, на которую «нанизаны» этажи */}
+      <mesh position={[0, total / 2, 0]}>
+        <cylinderGeometry args={[0.04, 0.04, total + 1.7, 8]} />
+        <meshBasicMaterial color={STEEL} transparent opacity={dim ? 0.22 : 0.45} fog={false} />
+      </mesh>
+      {/* навершие — буквально «шпиль» */}
+      <mesh position={[0, total + 0.92, 0]}>
+        <sphereGeometry args={[0.09, 12, 10]} />
+        <meshBasicMaterial color={accent} transparent opacity={dim ? 0.4 : 0.85} fog={false} />
+      </mesh>
+      <primitive object={guides} />
+    </group>
+  );
+}
+
 /** Мягкая радиальная «контактная тень» (canvas-текстура, без shadow map). */
 function makeShadowTexture(): THREE.CanvasTexture {
   const c = document.createElement("canvas");
@@ -870,6 +946,9 @@ function SpireContent({
       <Pedestal accent={accent} dim={dimAura} isLight={isLight} />
 
       <group ref={spireRef}>
+        {/* чертёжный каркас (только светлая тема) — вращается с башней */}
+        <SpireFrame total={layout.total} isLight={isLight} dim={dimAura} accent={accent} />
+
         {/* кольцо-селектор */}
         <mesh ref={selectorRef} rotation={[Math.PI / 2, 0, 0]}>
           <torusGeometry args={[1.9, 0.025, 8, 80]} />
