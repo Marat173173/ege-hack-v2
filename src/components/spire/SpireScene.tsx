@@ -27,16 +27,18 @@ interface SpireProps {
 function sceneTheme(theme: "light" | "dark") {
   return theme === "light"
     ? {
-        // приглушённый сине-стальной, а не выбеленный — Шпиль читается
+        // приглушённый сине-стальной, а не выбеленный — Шпиль читается.
+        // Туман заметно реже, чем в тёмной: на светлом фоне exp2-дымка
+        // «умолочивает» этажи и башня теряет объём.
         bg: 0xccd6e6,
         fog: 0xc4cfe0,
-        fogDensity: 0.02,
+        fogDensity: 0.01,
         ambient: 0x9fb0cf,
-        ambientI: 0.82,
-        dirI: 1.05,
-        grid1: 0x8294b4,
-        grid2: 0xb2bed4,
-        gridOpacity: 0.35,
+        ambientI: 0.66,
+        dirI: 1.25,
+        grid1: 0x54648a,
+        grid2: 0x8b99b8,
+        gridOpacity: 0.5,
         starColor: 0x6f80a0,
       }
     : {
@@ -434,7 +436,7 @@ function Pedestal({ accent, dim, isLight }: { accent: THREE.Color; dim: boolean;
         <meshBasicMaterial
           color={accent}
           transparent
-          opacity={isLight ? (dim ? 0.1 : 0.2) : dim ? 0.05 : 0.12}
+          opacity={isLight ? (dim ? 0.14 : 0.28) : dim ? 0.05 : 0.12}
         />
       </mesh>
       {/* гало основания (аддитив только на тёмном) */}
@@ -640,9 +642,11 @@ function SpireContent({
       <Lights accent={accent} st={st} light={isLight} />
       <Stars tier={tier} lightMode={lightMode} reduceMotion={reduceMotion} color={st.starColor} />
 
-      {/* платформа */}
+      {/* платформа. Материал линий — с vertexColors: gridHelper красит центр/
+          сетку через цвета вершин, обычный override-материал рисовал бы всё
+          одним белым и st.grid1/grid2 игнорировались бы */}
       <gridHelper args={[26, 26, st.grid1, st.grid2]} position={[0, -0.6, 0]}>
-        <meshBasicMaterial attach="material" transparent opacity={st.gridOpacity} />
+        <lineBasicMaterial attach="material" vertexColors transparent opacity={st.gridOpacity} />
       </gridHelper>
 
       {/* акцентный пьедестал под Шпилем */}

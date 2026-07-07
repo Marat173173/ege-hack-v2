@@ -76,6 +76,13 @@
   --ink-stroke: 18 24 40;
 }
 
+/* В светлой теме акцент-как-ТЕКСТ затемняется до читаемого контраста:
+   --accent-ink считается из акцента предмета в page.tsx (тот же оттенок,
+   светлота ~26%). Фоновые использования (bg-accent, кнопки, 3D) не трогаем. */
+[data-theme="light"] .text-accent {
+  color: rgb(var(--accent-ink, var(--accent)));
+}
+
 /* предмет: математика — холодные акценты (в обеих темах) */
 [data-subject="math"] {
   --accent: 63 200 255; /* #3FC8FF — циан */
@@ -192,6 +199,10 @@ strong,
     rgb(var(--hi) / 1) 100%
   );
   background-size: 200% auto;
+  /* шорткат background сбрасывает clip → без повтора текст превращается
+     в сплошные тёмные плашки (градиент рисуется ЗА прозрачными буквами) */
+  -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-stroke: 1px rgb(var(--hi) / 0.5);
   filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.18));
 }

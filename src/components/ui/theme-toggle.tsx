@@ -42,7 +42,7 @@ export function ThemeToggle({ className }: { className?: string }) {
             animate={{ rotate: 0, opacity: 1, scale: 1 }}
             exit={{ rotate: 90, opacity: 0, scale: 0.6 }}
             transition={{ duration: 0.25 }}
-            className="grid place-items-center text-[rgb(var(--bg-0))]"
+            className="grid place-items-center text-[#0a0e18]"
           >
             {isDark ? <Moon size={18} /> : <Sun size={19} />}
           </motion.span>

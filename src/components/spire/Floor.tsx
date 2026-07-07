@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import type { Floor as FloorData } from "@/data/types";
-import { floorState, RING_COLOR } from "@/lib/floor-state";
+import { floorState, ringColor } from "@/lib/floor-state";
 import { buildHeightFactor } from "@/lib/floor-build";
 import { makeTexture } from "./textures";
 import { bodyGeometry, bodyHeight, ringRadius } from "./geometry";
@@ -152,35 +152,42 @@ export function Floor({
     const st = locked ? "ghost" : floorState(floor);
     const m = material;
     m.wireframe = st === "ghost";
+    m.color.set(floor.hue);
 
     // в светлой теме материал должен быть ПЛОТНЕЕ и менее «свечёным»,
     // иначе translucent emissive-этажи сливаются с белым фоном
     if (isLight) {
-      m.opacity = st === "ghost" ? 0.3 : st === "forming" ? 0.85 : 1;
+      // пастельные hue (светлота ~60%) на светлом фоне выцветают — уводим
+      // пигмент темнее и насыщеннее; каркас призрака темним сильнее, чтобы
+      // линии читались на сине-стальном фоне, а не растворялись в нём
+      m.color.offsetHSL(0, 0.06, st === "ghost" ? -0.2 : -0.1);
+      m.opacity = st === "ghost" ? 0.5 : st === "forming" ? 0.9 : 1;
       m.metalness = 0.1;
-      m.roughness = 0.7;
+      m.roughness = 0.62;
       const g = mode === "parent" ? 0.45 : 1;
       // лёгкое свечение, чтобы цвет был насыщеннее, но не выбеливал
       m.emissiveIntensity =
         (st === "ghost" ? 0.0 : st === "forming" ? 0.16 : st === "unstable" ? 0.22 : 0.3) * g;
     } else {
-      m.opacity = st === "ghost" ? 0.18 : st === "forming" ? 0.55 : st === "unstable" ? 0.94 : 1;
+      // призраки 0.18 почти исчезали — демо-башня из одних «не начатых» тем
+      // выглядела пустой (кольца без тел); 0.28 держит каркас различимым
+      m.opacity = st === "ghost" ? 0.28 : st === "forming" ? 0.55 : st === "unstable" ? 0.94 : 1;
       m.metalness = 0.35;
       m.roughness = 0.45;
       const g = mode === "parent" ? 0.55 : 1;
+      // призраку — слабое «голограммное» свечение: без эмиссии каркас на
+      // почти чёрном фоне пропадал даже с поднятой непрозрачностью
       m.emissiveIntensity =
-        (st === "ghost" ? 0.0 : st === "forming" ? 0.4 : st === "unstable" ? 0.7 : 0.92) * g;
+        (st === "ghost" ? 0.16 : st === "forming" ? 0.4 : st === "unstable" ? 0.7 : 0.92) * g;
     }
 
-    ringMat.color.setHex(RING_COLOR[st]);
-    ringMat.opacity = st === "ghost" ? (isLight ? 0.55 : 0.4) : 1;
+    ringMat.color.setHex(ringColor(st, isLight));
+    ringMat.opacity = st === "ghost" ? (isLight ? 0.75 : 0.4) : 1;
 
     if (haloMat) {
       haloMat.color.setHex(
-        st === "solid"
-          ? 0x5be3b0
-          : st === "unstable"
-          ? 0xff5c6e
+        st === "solid" || st === "unstable"
+          ? ringColor(st, isLight)
           : Number("0x" + floor.hue.slice(1))
       );
       haloMat.opacity = st === "ghost" ? 0.3 : 0.85;
@@ -216,7 +223,7 @@ export function Floor({
         ? 0.22
         : 0.3
       : st === "ghost"
-      ? 0.0
+      ? 0.16
       : st === "forming"
       ? 0.4
       : st === "unstable"

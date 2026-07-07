@@ -38,12 +38,14 @@ const AnimatedLayerButton = React.forwardRef<
       ref={ref}
       {...props}
     >
-      {/* SVG-слой фоновой анимации */}
+      {/* SVG-слой фоновой анимации: в покое полностью скрыт (раньше «монета»
+          наполовину торчала из левого края и читалась как баг рендера) */}
       <svg
         className={cn(
-          "absolute h-auto transition-all duration-300 ease-in-out group-hover:left-0 group-hover:w-full",
+          "absolute h-auto opacity-0 transition-all duration-300 ease-in-out",
+          "group-hover:left-0 group-hover:w-full group-hover:opacity-100",
           // на тач hover не срабатывает — даём reveal на нажатие
-          "group-active:left-0 group-active:w-full",
+          "group-active:left-0 group-active:w-full group-active:opacity-100",
           "w-[64px] -left-[32px]",
           "animate-spin-slow"
         )}
@@ -85,8 +87,10 @@ const AnimatedLayerButton = React.forwardRef<
         />
       </svg>
 
-      {/* текст — становится прозрачным на hover, открывая вертушку */}
-      <span className="z-10 text-[1.05em] font-bold text-[rgb(var(--bg-0))] transition-colors duration-300 group-hover:text-transparent group-active:text-transparent">
+      {/* текст — становится прозрачным на hover, открывая вертушку.
+          Чернила фиксированно тёмные: rgb(var(--bg-0)) в светлой теме давал
+          светло-стальной текст на янтаре (контраст ~1.6:1) */}
+      <span className="z-10 text-[1.05em] font-bold text-[#0a0e18] transition-colors duration-300 group-hover:text-transparent group-active:text-transparent">
         {children}
       </span>
     </button>

@@ -22,6 +22,20 @@ export const RING_COLOR: Record<FloorState, number> = {
   solid: 0x5be3b0,
 };
 
+/** Кольца для светлой темы: те же смыслы, но темнее — на сине-стальном
+    фоне неоновые цвета тёмной темы выцветают ниже читаемого контраста. */
+export const RING_COLOR_LIGHT: Record<FloorState, number> = {
+  ghost: 0x46587e,
+  forming: 0xc07c14,
+  unstable: 0xd82e46,
+  solid: 0x148f66,
+};
+
+/** Цвет кольца состояния с учётом темы сцены. */
+export function ringColor(st: FloorState, isLight: boolean): number {
+  return (isLight ? RING_COLOR_LIGHT : RING_COLOR)[st];
+}
+
 export const STATE_META: Record<
   FloorState,
   { label: string; color: string; cls: string }

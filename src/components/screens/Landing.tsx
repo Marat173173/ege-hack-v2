@@ -96,7 +96,7 @@ export function Landing() {
         </motion.div>
 
         <h1
-          className="m-0 flex w-full flex-row flex-wrap items-center justify-center gap-x-3 gap-y-1 px-1 leading-[0.96]"
+          className="m-0 flex w-full flex-row flex-wrap items-center justify-center gap-x-[0.22em] gap-y-1 px-1 leading-[0.96]"
           style={{ fontSize: "clamp(2.7rem, 9.2vw, 8.2rem)" }}
         >
           <span className="glass-text font-serif font-medium italic">Взломай</span>

@@ -21,6 +21,8 @@ export function TopBar() {
   const profile = useApp((s) => s.profile);
   const updateProfile = useApp((s) => s.updateProfile);
   const closeInspector = useApp((s) => s.closeInspector);
+  // открыт ли правый рейл-инспектор (то же условие, что в Inspector.tsx)
+  const inspectorOpen = useApp((s) => s.mode === "parent" || !!s.selectedId);
 
   const lvl = levelProgress(game.xp);
   const dailyRatio = game.dailyGoal > 0 ? game.dailyXp / game.dailyGoal : 0;
@@ -109,7 +111,8 @@ export function TopBar() {
                 animate={{ opacity: 1, y: -18, scale: 1 }}
                 exit={{ opacity: 0, y: -30 }}
                 transition={{ duration: 0.8 }}
-                className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 font-mono text-[12px] font-bold text-accent"
+                style={{ x: "-50%" }} // framer-y/scale клобберит tailwind-translate
+                className="pointer-events-none absolute left-1/2 top-0 font-mono text-[12px] font-bold text-accent"
               >
                 +{xpPing.amount}
               </motion.div>
@@ -192,13 +195,18 @@ export function TopBar() {
         })}
       </div>
 
-      {/* light mode toggle */}
+      {/* light mode toggle. Когда справа открыт рейл-инспектор (выбран этаж
+          или родительский режим), уезжает левее — раньше панель накрывала
+          кнопку наполовину и это выглядело как сломанная вёрстка. */}
       <button
         onClick={toggleLight}
         aria-pressed={lightMode}
         title="Лёгкий режим — меньше нагрузки на устройство"
-        className="pointer-events-auto fixed bottom-3 right-3 z-[4] hidden rounded-xl border border-line bg-panel px-3 py-2 font-mono text-[10px] uppercase tracking-wide backdrop-blur-md transition-colors md:bottom-4 md:right-4 md:block"
-        style={{ color: lightMode ? "rgb(var(--accent))" : "rgb(var(--mid))" }}
+        className="pointer-events-auto fixed bottom-3 z-[4] hidden rounded-xl border border-line bg-panel px-3 py-2 font-mono text-[10px] uppercase tracking-wide backdrop-blur-md transition-all duration-300 md:bottom-4 md:block"
+        style={{
+          color: lightMode ? "rgb(var(--accent))" : "rgb(var(--mid))",
+          right: inspectorOpen ? 408 : 16,
+        }}
       >
         {lightMode ? "● Лёгкий режим" : "○ Лёгкий режим"}
       </button>

@@ -31,6 +31,28 @@ function hueToRgb(h: number, s = 70, l = 58): string {
   return `${f(0)} ${f(8)} ${f(4)}`;
 }
 
+/**
+ * «Чернильный» вариант акцента для ТЕКСТА в светлой теме: тот же оттенок,
+ * но светлота прижата до ~26% — иначе янтарь/циан на светлом фоне дают
+ * контраст ~2:1 и лейблы не читаются. Применяется через --accent-ink +
+ * override .text-accent в globals.css (только [data-theme="light"]).
+ */
+function accentInk(triple: string): string {
+  const [r, g, b] = triple.split(/\s+/).map((n) => Number(n) / 255);
+  const max = Math.max(r, g, b),
+    min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  let h = 0;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  if (d > 0) {
+    if (max === r) h = 60 * (((g - b) / d) % 6);
+    else if (max === g) h = 60 * ((b - r) / d + 2);
+    else h = 60 * ((r - g) / d + 4);
+  }
+  return hueToRgb((h + 360) % 360, Math.min(100, s * 100), 26);
+}
+
 export default function Page() {
   const screen = useApp((s) => s.screen);
   const subjectKey = useApp((s) => s.subjectKey);
@@ -52,6 +74,7 @@ export default function Page() {
     root.setAttribute("data-mode", mode);
     const { accent } = accentForKey(subjectKey);
     root.style.setProperty("--accent", accent);
+    root.style.setProperty("--accent-ink", accentInk(accent));
     root.style.setProperty("--accent-2", hueToRgb(avatarHue));
   }, [subjectKey, mode, avatarHue]);
 
