@@ -8,8 +8,9 @@ import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { Floor } from "./Floor";
 import { bodyHeight, GAP } from "./geometry";
-import { lockMap, floorReadiness, visibleFloors } from "@/lib/floor-build";
+import { lockMap, floorReadiness, visibleFloors, highestOpenIndex } from "@/lib/floor-build";
 import { floorState } from "@/lib/floor-state";
+import { spireCameraBus } from "./spire-camera-bus";
 import type { Subject } from "@/data/types";
 import type { Tier } from "@/lib/device-tier";
 
@@ -177,6 +178,8 @@ function CameraRig({
 
   useFrame(({ clock }) => {
     const c = controls.current;
+    // зажатие на рейле — плавный наезд, пока палец удержан
+    if (spireCameraBus.zooming) c.distT = Math.max(5.5, c.distT - 0.15);
     c.dist += (c.distT - c.dist) * 0.09;
     c.target += (c.targetT - c.target) * 0.11;
     c.lift += (c.liftT - c.lift) * 0.11;
@@ -458,9 +461,10 @@ function makeShadowTexture(): THREE.CanvasTexture {
 }
 
 /* ============================================================
-   FrontierBeacon — ГЛАВНЫЙ сигнал сцены: маяк «начни здесь» над самым
-   слабым открытым этажом (тот же, что пульсирует). Один источник правды
-   с Тропой («ты здесь»). Моушен-бюджет: маяк + дрожь состояний, всё.
+   FrontierBeacon — ГЛАВНЫЙ сигнал сцены: маяк «начни здесь» на фронтире
+   (верхний открытый НЕпройденный этаж — «где продолжать»). Самый слабый
+   этаж при этом пульсирует отдельно (isWeakest у Floor).
+   Моушен-бюджет: маяк + дрожь состояний, всё.
    ============================================================ */
 function FrontierBeacon({
   y,
@@ -781,6 +785,19 @@ function SpireContent({
     return id;
   }, [subject.floors, locks]);
 
+  // «фронтир» — верхний открытый НЕпройденный этаж («где продолжать»):
+  // от самого верхнего открытого вниз до первого не-монолита. Если всё
+  // пройдено — сам верхний открытый. Именно сюда указывает маяк «начни
+  // здесь» (weakestId остаётся для пульса самого слабого этажа).
+  const frontierId = React.useMemo(() => {
+    if (subject.floors.length === 0) return null;
+    const top = highestOpenIndex(subject.floors);
+    for (let i = top; i >= 0; i--) {
+      if (!locks[i] && floorState(subject.floors[i]) !== "solid") return subject.floors[i].id;
+    }
+    return subject.floors[top].id;
+  }, [subject.floors, locks]);
+
   const accent = useAccentColor(subjectKey);
   const st = React.useMemo(() => sceneTheme(theme), [theme]);
   const isLight = theme === "light";
@@ -810,10 +827,11 @@ function SpireContent({
     };
   }, [scene, gl, tier, lightMode]);
 
-  // маяк «начни здесь» — над самым слабым ОТКРЫТЫМ этажом (виден в кадре)
+  // маяк «начни здесь» — на ФРОНТИРЕ (верхний открытый непройденный этаж),
+  // а не на нижних слабых; фронтир всегда в видимом префиксе башни
   const beaconMeta = React.useMemo(
-    () => (weakestId ? layout.metas.find((m) => m.floor.id === weakestId) ?? null : null),
-    [layout, weakestId]
+    () => (frontierId ? layout.metas.find((m) => m.floor.id === frontierId) ?? null : null),
+    [layout, frontierId]
   );
 
   const spireRef = React.useRef<THREE.Group>(null);
@@ -829,6 +847,18 @@ function SpireContent({
   // актуальная высота башни для клампа панорамирования (без ре-биндинга слушателей)
   const totalRef = React.useRef(layout.total);
   totalRef.current = layout.total;
+
+  // мост DOM→canvas: свайп по правому рейлу панорамирует камеру по доле высоты
+  React.useEffect(() => {
+    spireCameraBus.panFrac = (f: number) => {
+      const c = controls.current;
+      c.targetT = Math.max(0.2, Math.min(f * totalRef.current, Math.max(1, totalRef.current)));
+    };
+    return () => {
+      spireCameraBus.panFrac = null;
+      spireCameraBus.zooming = false;
+    };
+  }, []);
 
   // селектор следует за выбранным этажом
   React.useEffect(() => {
@@ -874,10 +904,13 @@ function SpireContent({
         dy = e.clientY - down.y;
       if (Math.abs(dx) + Math.abs(dy) > 5) dragging = true;
       if (dragging) {
-        yawRef.current -= dx * 0.006;
         const c = controls.current;
+        // при зуме жест масштабируем дистанцией: вблизи те же пиксели
+        // означают меньший поворот/панораму (иначе слишком чувствительно)
+        const k = Math.max(0.35, Math.min(1, c.dist / 16));
+        yawRef.current -= dx * 0.006 * k;
         // панорама по высоте — в пределах реальной высоты видимой башни
-        c.targetT = Math.max(0.2, Math.min(c.targetT - dy * 0.012, Math.max(1, totalRef.current)));
+        c.targetT = Math.max(0.2, Math.min(c.targetT - dy * 0.012 * k, Math.max(1, totalRef.current)));
         down = { x: e.clientX, y: e.clientY };
       }
     };
