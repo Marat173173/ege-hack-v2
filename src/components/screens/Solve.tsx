@@ -163,8 +163,12 @@ export function Solve() {
         mistakes={mistakes}
         // scoreRange={{ low, high }}  // TODO: подключить из score-model.ts (floorReadiness → балл)
         onNext={finish}
-        onBack={() => setScreen("spire")}
+        // «к Шпилю» ТОЖЕ фиксирует результат (finish: bump+XP+toast+resetCombo),
+        // раньше молча терял сессию
+        onBack={finish}
         onAskTutor={(m) => {
+          // зафиксировать сессию перед уходом к репетитору, иначе XP/комбо теряются
+          finish();
           window.location.href = `/tutor?topic=${encodeURIComponent(m.code)}&subject=russian`;
         }}
       />

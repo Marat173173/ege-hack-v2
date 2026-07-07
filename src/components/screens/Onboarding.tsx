@@ -18,13 +18,18 @@ export function Onboarding() {
   const setScreen = useApp((s) => s.setScreen);
   const setSubject = useApp((s) => s.setSubject);
   const subjectKey = useApp((s) => s.subjectKey);
+  const updateProfile = useApp((s) => s.updateProfile);
 
   const [step, setStep] = React.useState(0);
   const [goal, setGoal] = React.useState(80);
 
   function next() {
     if (step < STEPS.length - 1) setStep((s) => s + 1);
-    else setScreen("format"); // после онбординга — выбор формата (Шпиль/Тропа)
+    else {
+      // сохранить целевой балл из шага 2 (был локальным стейтом — терялся)
+      updateProfile({ targetScore: goal });
+      setScreen("format"); // после онбординга — выбор формата (Шпиль/Тропа)
+    }
   }
   function back() {
     if (step > 0) setStep((s) => s - 1);

@@ -40,7 +40,10 @@ export function BottomTabBar() {
   );
   // экран чата: бар присутствует, но авто-спрятан (фокус на переписке)
   const chatOpen = screen === "chat";
-  const autoHide = overlayOpen || chatOpen;
+  // модалка (урок/разбор): бар — сиблинг fixed-корня SpireScreen и на мобиле
+  // рисуется ПОВЕРХ модалки (разные stacking context) → прячем при модалке
+  const modalOpen = useApp((s) => s.modal !== null);
+  const autoHide = overlayOpen || chatOpen || modalOpen;
 
   const [collapsed, setCollapsed] = React.useState(false);
   // авто: открыли оверлей/чат → бар улетает; закрыли → возвращается
@@ -91,7 +94,13 @@ export function BottomTabBar() {
       label: isPath ? "Тропа" : "Шпиль",
       go: goStudy,
     },
-    { key: "chat", icon: MessageCircle, label: "Чат", go: () => setScreen("chat") },
+    {
+      key: "chat",
+      icon: MessageCircle,
+      label: "Чат",
+      // уже в чате → тап по «Чат» сворачивает бар (иначе он лёг бы на инпут)
+      go: () => (screen === "chat" ? setCollapsed(true) : setScreen("chat")),
+    },
     { key: "leagues", icon: Trophy, label: "Лиги", go: () => setScreen("leagues") },
     { key: "profile", icon: User, label: "Профиль", go: () => setScreen("profile") },
   ];
@@ -135,6 +144,8 @@ export function BottomTabBar() {
           }}
         >
           <div
+            // спрятанный за экраном бар не должен быть в порядке фокуса/скринридера
+            aria-hidden={collapsed || undefined}
             className="liquid-glass flex items-stretch justify-around rounded-[26px] px-1.5"
             style={{
               height: "var(--tabbar-h)",
@@ -154,6 +165,7 @@ export function BottomTabBar() {
                 <button
                   key={t.key}
                   onClick={t.go}
+                  tabIndex={collapsed ? -1 : 0}
                   aria-current={on ? "page" : undefined}
                   aria-label={
                     t.key === "study"

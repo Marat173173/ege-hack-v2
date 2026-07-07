@@ -44,6 +44,7 @@ export function SpireRail() {
   // состояние жеста — в ref (60fps-события не должны ре-рендерить рейл)
   const gesture = React.useRef<{
     active: boolean;
+    startX: number;
     startY: number;
     moved: boolean;
     zoomed: boolean;
@@ -51,7 +52,7 @@ export function SpireRail() {
     /** Геометрия рейла В МОМЕНТ касания: магнифер растит рейл сразу после
      *  pointerdown, и живой rect на pointerup мапил бы тап на другой этаж. */
     rect: { top: number; height: number } | null;
-  }>({ active: false, startY: 0, moved: false, zoomed: false, timer: null, rect: null });
+  }>({ active: false, startX: 0, startY: 0, moved: false, zoomed: false, timer: null, rect: null });
 
   // страховка: анмаунт (уход в фокус/родителя) посреди жеста не должен
   // оставить камеру в вечном зум-ине
@@ -87,6 +88,7 @@ export function SpireRail() {
     setEngaged(true); // тач: растим рейл на время жеста
     railRef.current?.setPointerCapture(e.pointerId);
     g.active = true;
+    g.startX = e.clientX;
     g.startY = e.clientY;
     g.moved = false;
     g.zoomed = false;
@@ -103,6 +105,16 @@ export function SpireRail() {
   function onPointerMove(e: React.PointerEvent) {
     const g = gesture.current;
     if (!g.active || g.zoomed) return; // удержание-зум перебивает свайп
+    // горизонталь не принадлежит вертикальному рейлу — отменяем жест целиком
+    // (иначе горизонт-драг завершался бы ложным тапом → «полёт камеры»)
+    if (!g.moved && Math.abs(e.clientX - g.startX) > SWIPE_SLOP + 4 &&
+        Math.abs(e.clientX - g.startX) > Math.abs(e.clientY - g.startY)) {
+      g.active = false;
+      if (g.timer) { clearTimeout(g.timer); g.timer = null; }
+      spireCameraBus.zooming = false;
+      setEngaged(false);
+      return;
+    }
     if (!g.moved && Math.abs(e.clientY - g.startY) > SWIPE_SLOP) {
       g.moved = true;
       if (g.timer) {
