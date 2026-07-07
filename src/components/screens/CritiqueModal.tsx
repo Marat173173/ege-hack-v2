@@ -92,20 +92,25 @@ export function CritiqueModal({
           border: 1px solid rgb(var(--line) / var(--line-a));
           border-radius: 12px;
           background: rgb(var(--hi) / 0.035);
-          font-size: 12.5px;
-          line-height: 1.5;
+          font-size: 14px;
+          line-height: 1.55;
           color: rgb(var(--mid));
         }
         .ct-sum :global(b) {
           color: rgb(var(--hi));
         }
         .ct-apply {
+          /* sticky-футер: «учесть разбор» всегда виден, без скролла карусели */
+          position: sticky;
+          bottom: 0;
+          z-index: 3;
           margin-top: 18px;
           width: 100%;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
+          min-height: 52px;
           padding: 13px;
           border: 0;
           border-radius: 14px;
@@ -115,7 +120,7 @@ export function CritiqueModal({
           cursor: pointer;
           background: linear-gradient(180deg, var(--c), color-mix(in srgb, var(--c) 70%, #000));
           box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4),
-            0 10px 26px -12px var(--c);
+            0 10px 26px -12px var(--c), 0 -16px 22px -10px rgb(var(--bg-1));
         }
       `}</style>
     </Modal>

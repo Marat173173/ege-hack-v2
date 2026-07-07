@@ -59,7 +59,7 @@ export function Console() {
               {sc.solid}
               <small className="ml-0.5 text-[13px] font-normal text-lo">/{sc.total}</small>
             </div>
-            <div className="mt-1 hud-label text-[8.5px] text-lo">Высота · этажи</div>
+            <div className="mt-1 hud-label text-[11px] text-mid">Высота · этажи</div>
           </div>
           <div
             className="rounded-xl border bg-white/[0.02] p-2.5"
@@ -75,14 +75,14 @@ export function Console() {
               {sc.aS}
               <small className="ml-0.5 text-[13px] font-normal opacity-60">%</small>
             </div>
-            <div className="mt-1 hud-label text-[8.5px] text-lo">Стабильность</div>
+            <div className="mt-1 hud-label text-[11px] text-mid">Стабильность</div>
           </div>
         </div>
 
         {/* общая готовность к ЕГЭ = высота Шпиля */}
         <div className="mb-3 rounded-xl border border-line bg-white/[0.02] p-2.5">
           <div className="mb-1.5 flex items-center justify-between">
-            <span className="hud-label text-[8.5px] text-lo">Готовность к ЕГЭ · высота Шпиля</span>
+            <span className="hud-label text-[11px] text-mid">Готовность к ЕГЭ · высота Шпиля</span>
             <b className="font-mono text-[13px] text-accent">{ready}%</b>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-white/5">
@@ -97,7 +97,7 @@ export function Console() {
         {/* прогноз-диапазон */}
         <div className="mb-3 rounded-xl border border-line bg-white/[0.02] p-3">
           <div className="mb-2 flex items-center justify-between">
-            <span className="hud-label text-[9px] text-lo">Прогноз балла</span>
+            <span className="hud-label text-[11px] text-mid">Прогноз балла</span>
             <span className="font-mono text-[15px] font-bold" style={{ color: col }}>
               {sc.min}–{sc.max}
             </span>
@@ -123,7 +123,7 @@ export function Console() {
 
         {/* дрожащие зоны */}
         <div>
-          <div className="mb-2 hud-label text-[9px] text-lo">
+          <div className="mb-2 hud-label text-[11px] text-mid">
             Дрожащие зоны — нажми, чтобы укрепить
           </div>
           <div className="flex flex-wrap gap-1.5">
