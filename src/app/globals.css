@@ -395,11 +395,12 @@ strong,
 .pb-nav { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
 .fab-safe { bottom: max(1.25rem, env(safe-area-inset-bottom)); }
 @media (max-width: 767px) {
+  /* +10px — зазор «острова» таб-бара от нижнего края */
   .pb-nav {
-    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 12px);
+    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 24px);
   }
-  /* FAB поднимаем над таб-баром */
-  .fab-safe { bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 8px); }
+  /* FAB поднимаем над таб-баром-островом */
+  .fab-safe { bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 20px); }
 }
 
 /* минимальная тап-зона 44×44 (Apple HIG / WCAG 2.5.5) */

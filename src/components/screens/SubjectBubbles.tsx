@@ -163,12 +163,12 @@ function Bubble({
   const top = Math.min(88, Math.max(14, baseTop + jy));
 
   // амплитуды и длительность дрейфа — у каждого свои, отсюда «хаос»
-  // амплитуды дрейфа СИЛЬНО уменьшены: пузырь «дышит» ±5px, но НЕ убегает
-  // из-под пальца — тап-мишень стабильна (mobile-ux фикс)
-  const driftX = 4 + rand(index + 3) * 3; // ~4..7px
-  const driftY = 4 + rand(index + 4) * 3;
+  // амплитуды и длительность дрейфа — у каждого свои, отсюда «хаос».
+  // Скорость низкая (11–20с на цикл), поэтому мишень остаётся попадаемой.
+  const driftX = 26 + rand(index + 3) * 40; // px
+  const driftY = 22 + rand(index + 4) * 38;
   const dur = 11 + rand(index + 5) * 9; // 11..20с — медленно
-  const rot = 1 + rand(index + 6) * 1.2;
+  const rot = 4 + rand(index + 6) * 6;
   const dir = rand(index + 7) > 0.5 ? 1 : -1;
 
   const size = showActive ? 104 : 92;

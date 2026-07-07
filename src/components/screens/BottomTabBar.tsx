@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import {
   Building2,
   Footprints,
+  ArrowLeftRight,
   MessageCircle,
   Trophy,
   User,
@@ -13,16 +14,15 @@ import {
 import { useApp } from "@/lib/store";
 
 /**
- * Постоянная нижняя таб-навигация (mobile-first).
+ * Нижняя таб-навигация — «плавающий островок» (mobile-first).
  *
- * Заменяет прежний «бургер + раскрывающееся облако»: 5 разделов всегда видны
- * в зоне большого пальца, активный подсвечен янтарём + верхней риской (не только
- * цвет). Стекло бренда (.liquid-glass), safe-area снизу. Reduced-motion — через
- * глобальный <MotionConfig reducedMotion="user"> в page.tsx.
- *
- * «Шпиль» и «Тропа» — это один screen="spire" с разным profile.viewMode.
+ * По фидбеку: Шпиль/Тропа — НЕ два раздела, а один таб «карта знаний»
+ * с кнопкой-переключателем формата (повторный тап по активному табу
+ * переключает Шпиль ⇄ Тропа). Бар отлеплен от краёв (остров), стекло
+ * прозрачнее фирменного liquid-glass — «парит» над сценой.
+ * Активный пункт: янтарная пилюля + жирный вес (не только цвет). Safe-area.
  */
-type TabKey = "spire" | "path" | "chat" | "leagues" | "profile";
+type TabKey = "study" | "chat" | "leagues" | "profile";
 
 export function BottomTabBar() {
   const screen = useApp((s) => s.screen);
@@ -31,33 +31,26 @@ export function BottomTabBar() {
   const updateProfile = useApp((s) => s.updateProfile);
   const closeInspector = useApp((s) => s.closeInspector);
 
-  const active: TabKey =
-    screen === "spire" || screen === "parent"
-      ? viewMode === "path"
-        ? "path"
-        : "spire"
-      : (screen as TabKey);
+  const onStudy = screen === "spire" || screen === "parent";
+  const active: TabKey = onStudy ? "study" : (screen as TabKey);
+  const isPath = viewMode === "path";
+
+  function goStudy() {
+    if (onStudy) {
+      // уже на карте знаний → тап работает как переключатель формата
+      closeInspector();
+      updateProfile({ viewMode: isPath ? "spire" : "path", viewChosen: true });
+    } else {
+      setScreen("spire");
+    }
+  }
 
   const tabs: { key: TabKey; icon: LucideIcon; label: string; go: () => void }[] = [
     {
-      key: "spire",
-      icon: Building2,
-      label: "Шпиль",
-      go: () => {
-        closeInspector();
-        updateProfile({ viewMode: "spire", viewChosen: true });
-        setScreen("spire");
-      },
-    },
-    {
-      key: "path",
-      icon: Footprints,
-      label: "Тропа",
-      go: () => {
-        closeInspector();
-        updateProfile({ viewMode: "path", viewChosen: true });
-        setScreen("spire");
-      },
+      key: "study",
+      icon: isPath ? Footprints : Building2,
+      label: isPath ? "Тропа" : "Шпиль",
+      go: goStudy,
     },
     { key: "chat", icon: MessageCircle, label: "Чат", go: () => setScreen("chat") },
     { key: "leagues", icon: Trophy, label: "Лиги", go: () => setScreen("leagues") },
@@ -67,12 +60,21 @@ export function BottomTabBar() {
   return (
     <nav
       aria-label="Основная навигация"
-      className="fixed inset-x-0 bottom-0 z-[45] md:hidden"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-[45] md:hidden"
+      style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
     >
       <div
-        className="liquid-glass flex items-stretch justify-around rounded-none border-x-0 border-b-0"
-        style={{ height: "var(--tabbar-h)" }}
+        className="liquid-glass pointer-events-auto mx-auto flex w-[min(92vw,400px)] items-stretch justify-around rounded-[26px] px-1.5"
+        style={{
+          height: "var(--tabbar-h)",
+          // прозрачнее фирменного стекла — сцена просвечивает сквозь остров
+          background:
+            "linear-gradient(135deg, rgb(var(--glass-hi)/0.12), rgb(var(--glass-hi)/0.02) 45%, rgb(var(--glass-hi)/0.07)), rgb(var(--glass-tint)/0.38)",
+          backdropFilter: "blur(26px) saturate(180%)",
+          WebkitBackdropFilter: "blur(26px) saturate(180%)",
+          boxShadow:
+            "0 18px 42px -18px rgba(0,0,0,0.6), inset 0 1px 0 rgb(var(--glass-hi)/0.3)",
+        }}
       >
         {tabs.map((t) => {
           const on = active === t.key;
@@ -83,24 +85,35 @@ export function BottomTabBar() {
               key={t.key}
               onClick={t.go}
               aria-current={on ? "page" : undefined}
-              aria-label={t.label}
-              className="focus-ring relative flex flex-1 flex-col items-center justify-center gap-1"
+              aria-label={
+                t.key === "study"
+                  ? on
+                    ? `Формат: ${isPath ? "Тропа" : "Шпиль"}. Нажми, чтобы переключить на ${isPath ? "Шпиль" : "Тропу"}`
+                    : "Карта знаний"
+                  : t.label
+              }
+              className="focus-ring relative flex flex-1 flex-col items-center justify-center gap-1 rounded-[20px]"
             >
-              {/* активная риска сверху — дублирует цвет формой (не только цвет) */}
+              {/* активная пилюля — форма дублирует цвет (не только цвет) */}
               {on && (
                 <motion.span
-                  layoutId="tab-underline"
-                  className="absolute top-0 h-[2.5px] w-8 rounded-full"
-                  style={{ background: "rgb(var(--accent))" }}
-                  transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                  layoutId="tab-pill"
+                  className="absolute inset-x-1 inset-y-1.5 rounded-[16px]"
+                  style={{
+                    background: "rgb(var(--accent) / 0.13)",
+                    border: "1px solid rgb(var(--accent) / 0.28)",
+                  }}
+                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
                 />
               )}
-              <Icon size={22} strokeWidth={on ? 2.6 : 2} style={{ color }} />
+              <Icon size={21} strokeWidth={on ? 2.5 : 2} style={{ color }} className="relative" />
               <span
-                className="text-[11px] leading-none"
+                className="relative flex items-center gap-1 text-[11px] leading-none"
                 style={{ color, fontWeight: on ? 700 : 500 }}
               >
                 {t.label}
+                {/* подсказка: активный таб «учёбы» переключает формат */}
+                {t.key === "study" && on && <ArrowLeftRight size={10} aria-hidden="true" />}
               </span>
             </button>
           );

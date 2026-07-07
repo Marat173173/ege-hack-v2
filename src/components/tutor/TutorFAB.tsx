@@ -33,9 +33,18 @@ export function TutorFAB() {
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
       aria-label="Открыть ИИ-репетитора"
-      className="fab-safe focus-ring fixed right-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-[rgb(var(--accent))] text-[rgb(var(--bg-0))] shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.05)] sm:right-6"
+      // по фидбеку: мельче и прозрачнее — не перетягивает внимание с контента
+      className="fab-safe focus-ring fixed right-4 z-40 grid h-11 w-11 place-items-center rounded-full border sm:right-5"
+      style={{
+        background: "rgb(var(--accent) / 0.16)",
+        borderColor: "rgb(var(--accent) / 0.35)",
+        color: "rgb(var(--accent))",
+        backdropFilter: "blur(14px) saturate(160%)",
+        WebkitBackdropFilter: "blur(14px) saturate(160%)",
+        boxShadow: "0 8px 20px -12px rgba(0,0,0,0.5)",
+      }}
     >
-      <Sparkles className="h-6 w-6" />
+      <Sparkles className="h-5 w-5" />
       <span className="sr-only">Открыть ИИ-репетитора</span>
     </motion.a>
   );
