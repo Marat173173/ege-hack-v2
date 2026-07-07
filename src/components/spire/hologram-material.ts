@@ -53,16 +53,19 @@ export function makeHologramMaterial(hue: string): THREE.ShaderMaterial {
         // края не мерцают на мобиле
         float f = fract(vWorldY * 7.0 - uTime * 0.6);
         float scan = smoothstep(0.87, 0.915, f) * (1.0 - smoothstep(0.955, 0.995, f));
-        // fresnel: край силуэта светится, «объём» без освещения
+        // fresnel: край силуэта — «объём» без освещения
         float fres = pow(1.0 - abs(dot(normalize(vNormal), normalize(vViewDir))), 2.2);
-        // тонкие линии покрывают меньше площади — чуть плотнее тело/линия,
-        // чтобы призрак не «истаял»
-        float alpha = mix(0.12, 0.34, scan) + fres * 0.35;
-        vec3 col = uColor * (0.75 + 0.5 * fres) + uColor * scan * 0.15;
-        // светлая тема: пигмент темнее (как offsetHSL у стандартного
-        // материала), альфа плотнее — иначе растворяется на белом фоне
-        col *= mix(1.0, 0.7, uLight);
-        alpha *= mix(1.0, 1.25, uLight);
+        // ТЁМНАЯ тема: свечение — край и линии ВЫБЕЛИВАЮТСЯ (глоу).
+        // СВЕТЛАЯ тема: свечение не работает физически (светлое-на-светлом
+        // исчезает) — усиливаем ЧЕРНИЛАМИ: край чуть темнее пигмента
+        // (не белее!), сам пигмент глубже, альфа заметно плотнее.
+        float bright = mix(0.75 + 0.5 * fres, 0.85 - 0.15 * fres, uLight);
+        vec3 col = uColor * bright + uColor * scan * mix(0.15, 0.05, uLight);
+        col *= mix(1.0, 0.62, uLight);
+        // тонкие линии покрывают меньше площади — тело/линия плотнее,
+        // на светлом краю fresnel добавляет НЕПРОЗРАЧНОСТЬ (чернильный контур)
+        float alpha = mix(0.12, 0.34, scan) + fres * mix(0.35, 0.5, uLight);
+        alpha *= mix(1.0, 1.45, uLight);
         gl_FragColor = vec4(col, alpha * uOpacity);
         // как у встроенных материалов: tone mapping + вывод в sRGB —
         // иначе оттенок голограммы расходится между путями с композером
