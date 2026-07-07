@@ -14,7 +14,9 @@ import { ProfileScreen } from "@/components/screens/ProfileScreen";
 import { ChatScreen } from "@/components/screens/ChatScreen";
 import { FormatChoiceScreen } from "@/components/screens/FormatChoiceScreen";
 import { LeaguesScreen } from "@/components/screens/LeaguesScreen";
+import { DiagnosticScreen } from "@/components/screens/DiagnosticScreen";
 import { BottomTabBar } from "@/components/screens/BottomTabBar";
+import { CelebrationOverlay } from "@/components/screens/CelebrationOverlay";
 
 /** Экраны, где показываем постоянный нижний таб-бар (главные разделы).
  *  На чате бар есть, но авто-спрятан влево (стрелка возвращает).
@@ -111,6 +113,7 @@ export default function Page() {
           >
             {screen === "landing" && <Landing />}
             {screen === "onboarding" && <Onboarding />}
+            {screen === "diagnostic" && <DiagnosticScreen />}
             {screen === "format" && <FormatChoiceScreen />}
             {(screen === "spire" || screen === "parent") && <SpireScreen />}
             {screen === "solve" && <Solve />}
@@ -123,6 +126,11 @@ export default function Page() {
         {/* постоянная нижняя навигация (мобилка) — вне AnimatePresence, чтобы
             не перемонтироваться и не мигать при смене экрана */}
         {(TABBAR_SCREENS as readonly string[]).includes(screen) && <BottomTabBar />}
+
+        {/* празднования — ГЛОБАЛЬНО (не только на Шпиле): вехи видны в момент
+            достижения, в т.ч. во время тренировки; очередь дренируется, а не
+            копится в лавину */}
+        <CelebrationOverlay />
       </ToastProvider>
     </MotionConfig>
   );

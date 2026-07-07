@@ -14,7 +14,6 @@ import { TopBar } from "./TopBar";
 import { Console } from "./Console";
 import { Inspector } from "./Inspector";
 import { ModalHost } from "./ModalHost";
-import { CelebrationOverlay } from "./CelebrationOverlay";
 import { PathScreen } from "./PathScreen";
 import { MobileSheets } from "./MobileSheets";
 import { useToast } from "./Toast";
@@ -201,7 +200,7 @@ export function SpireScreen() {
       {isMobile && <MobileSheets />}
       <Inspector />
       <ModalHost />
-      <CelebrationOverlay />
+      {/* CelebrationOverlay смонтирован ГЛОБАЛЬНО в page.tsx (вехи видны везде) */}
 
       {/* подсказка управления (десктоп и тач — разный текст) */}
       <AnimatePresence>

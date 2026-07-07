@@ -11,6 +11,7 @@ export type Theme = "light" | "dark";
 export type Screen =
   | "landing"
   | "onboarding"
+  | "diagnostic"
   | "format"
   | "spire"
   | "solve"
@@ -75,6 +76,8 @@ interface AppState {
   closeModal: () => void;
   setSheet: (s: null | "progress" | "lessonPicker") => void;
   bump: (id: string, dProg: number, dStab: number) => void;
+  /** Входной срез: выставить АБСОЛЮТНЫЙ уровень этажа (prog/stab 0..100). */
+  calibrate: (id: string, prog: number, stab: number) => void;
 
   // гейм-экшены
   ensureDay: () => void;
@@ -82,6 +85,7 @@ interface AppState {
   resetCombo: () => void;
   setDailyGoal: (goal: number) => void;
   dismissCelebration: () => void;
+  dismissAllCelebrations: () => void;
 
   // профиль
   updateProfile: (patch: Partial<Profile>) => void;
@@ -344,6 +348,27 @@ export const useApp = create<AppState>((set, get) => ({
 
   dismissCelebration: () =>
     set((st) => ({ celebrationQueue: st.celebrationQueue.slice(1) })),
+
+  // пропустить ВСЮ очередь разом (Escape / тап по сводному оверлею) —
+  // чтобы лавина вех не блокировала экран на 20+ секунд
+  dismissAllCelebrations: () => set({ celebrationQueue: [] }),
+
+  // входной срез: абсолютная установка уровня этажа (не дельта, как bump)
+  calibrate: (id, prog, stab) =>
+    set((st) => {
+      const subj = st.data[st.subjectKey];
+      if (!subj) return {};
+      const floors = subj.floors.map((f) =>
+        f.id === id
+          ? {
+              ...f,
+              prog: Math.max(0, Math.min(100, Math.round(prog))),
+              stab: Math.max(0, Math.min(100, Math.round(stab))),
+            }
+          : f
+      );
+      return { data: { ...st.data, [st.subjectKey]: { ...subj, floors } } };
+    }),
 
   updateProfile: (patch) =>
     set((st) => {

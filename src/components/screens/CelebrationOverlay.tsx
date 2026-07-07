@@ -112,31 +112,47 @@ function Confetti({ accent }: { accent: string }) {
 }
 
 export function CelebrationOverlay() {
-  const celebration = useApp((s) => s.celebrationQueue[0] ?? null);
+  const queue = useApp((s) => s.celebrationQueue);
   const dismiss = useApp((s) => s.dismissCelebration);
+  const dismissAll = useApp((s) => s.dismissAllCelebrations);
 
-  // ключ для перезапуска эффекта при смене конкретного празднования в очереди
-  const key = celebration ? celebration.kind + celebration.title : null;
+  const many = queue.length > 1; // 2+ вехи разом → сводный оверлей (не лавина)
+  const current = queue[0] ?? null;
+  // ключ перезапуска эффекта: в сводном режиме — по длине очереди
+  const key = many ? `summary-${queue.length}` : current ? current.kind + current.title : null;
 
+  // Escape закрывает ВСЮ очередь (в т.ч. сводную)
   React.useEffect(() => {
-    if (!celebration) return;
+    if (!queue.length) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") dismissAll();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [queue.length, dismissAll]);
+
+  // один звук на появление; авто-дисмис (сводный держим дольше — надо прочитать)
+  React.useEffect(() => {
+    if (!queue.length) return;
     playCelebrate();
-    const t = setTimeout(dismiss, 3200);
+    const t = setTimeout(many ? dismissAll : dismiss, many ? 5200 : 3200);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, dismiss]);
+  }, [key]);
 
-  const Icon = celebration ? ICONS[celebration.kind] : Sparkles;
+  const HeadIcon = many ? Trophy : current ? ICONS[current.kind] : Sparkles;
+  // тап по фону закрывает: в сводном — всю очередь, иначе — текущую
+  const onBackdrop = many ? dismissAll : dismiss;
 
   return (
     <AnimatePresence mode="wait">
-      {celebration && (
+      {queue.length > 0 && (
         <motion.div
           key={key ?? "celebration"}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={dismiss}
+          onClick={onBackdrop}
           style={{
             position: "fixed",
             inset: 0,
@@ -145,9 +161,7 @@ export function CelebrationOverlay() {
             alignItems: "center",
             justifyContent: "center",
             padding: 16,
-            background: "rgb(var(--scrim) / 0.55)",
-            backdropFilter: "blur(2px)",
-            WebkitBackdropFilter: "blur(2px)",
+            background: "rgb(var(--scrim) / 0.62)",
             cursor: "pointer",
           }}
         >
@@ -161,10 +175,10 @@ export function CelebrationOverlay() {
             style={{
               position: "relative",
               zIndex: 71,
-              width: "min(92vw, 380px)",
+              width: "min(92vw, 400px)",
               borderRadius: 24,
               border: "1px solid rgb(var(--glass-hi) / var(--glass-border-a))",
-              padding: "30px 26px 26px",
+              padding: many ? "26px 22px 22px" : "30px 26px 26px",
               textAlign: "center",
             }}
           >
@@ -173,9 +187,9 @@ export function CelebrationOverlay() {
               animate={{ scale: 1, rotate: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 14, delay: 0.1 }}
               style={{
-                margin: "0 auto 16px",
-                width: 76,
-                height: 76,
+                margin: "0 auto 14px",
+                width: 72,
+                height: 72,
                 display: "grid",
                 placeItems: "center",
                 borderRadius: "50%",
@@ -184,46 +198,101 @@ export function CelebrationOverlay() {
                 boxShadow: "0 0 40px -6px rgb(var(--accent) / 0.6)",
               }}
             >
-              <Icon size={38} style={{ color: "rgb(var(--accent))" }} />
+              <HeadIcon size={36} style={{ color: "rgb(var(--accent))" }} />
             </motion.div>
-            <h2
-              style={{
-                margin: "0 0 8px",
-                fontFamily: "var(--serif)",
-                fontSize: "1.5rem",
-                lineHeight: 1.1,
-                letterSpacing: "-0.01em",
-                color: "rgb(var(--hi))",
-              }}
-            >
-              {celebration.title}
-            </h2>
-            <p
-              className="font-hand"
-              style={{
-                margin: 0,
-                fontSize: 18,
-                lineHeight: 1.35,
-                color: "rgb(var(--mid))",
-              }}
-            >
-              {celebration.subtitle}
-            </p>
-            <div
-              style={{
-                marginTop: 16,
-                fontFamily: "var(--mono)",
-                fontSize: 10,
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-                color: "rgb(var(--lo))",
-              }}
-            >
-              нажми, чтобы продолжить
-            </div>
+
+            {many ? (
+              <>
+                <h2 style={headStyle}>Отличная сессия!</h2>
+                <p className="font-hand" style={{ ...subStyle, marginBottom: 14 }}>
+                  Сразу несколько достижений
+                </p>
+                {/* СПИСОК вех вместо 6 отдельных оверлеев */}
+                <div style={{ display: "grid", gap: 8, textAlign: "left" }}>
+                  {queue.slice(0, 5).map((c, i) => {
+                    const RowIcon = ICONS[c.kind] ?? Sparkles;
+                    return (
+                      <div
+                        key={c.kind + c.title + i}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: "8px 10px",
+                          borderRadius: 12,
+                          background: "rgb(var(--glass-hi) / 0.05)",
+                          border: "1px solid rgb(var(--line) / var(--line-a))",
+                        }}
+                      >
+                        <span
+                          style={{
+                            display: "grid",
+                            placeItems: "center",
+                            width: 30,
+                            height: 30,
+                            flex: "0 0 auto",
+                            borderRadius: "50%",
+                            background: "rgb(var(--accent) / 0.14)",
+                          }}
+                        >
+                          <RowIcon size={16} style={{ color: "rgb(var(--accent))" }} />
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 13.5,
+                            fontWeight: 700,
+                            color: "rgb(var(--hi))",
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          {c.title}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {queue.length > 5 && (
+                    <div style={{ ...noteStyle, textAlign: "center" }}>
+                      и ещё {queue.length - 5}
+                    </div>
+                  )}
+                </div>
+                <div style={noteStyle}>нажми — закрыть всё</div>
+              </>
+            ) : (
+              <>
+                <h2 style={headStyle}>{current!.title}</h2>
+                <p className="font-hand" style={subStyle}>
+                  {current!.subtitle}
+                </p>
+                <div style={noteStyle}>нажми, чтобы продолжить</div>
+              </>
+            )}
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
   );
 }
+
+const headStyle: React.CSSProperties = {
+  margin: "0 0 8px",
+  fontFamily: "var(--serif)",
+  fontSize: "1.5rem",
+  lineHeight: 1.1,
+  letterSpacing: "-0.01em",
+  color: "rgb(var(--hi))",
+};
+const subStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 18,
+  lineHeight: 1.35,
+  color: "rgb(var(--mid))",
+};
+const noteStyle: React.CSSProperties = {
+  marginTop: 16,
+  fontFamily: "var(--mono)",
+  fontSize: 10,
+  letterSpacing: "0.16em",
+  textTransform: "uppercase",
+  color: "rgb(var(--lo))",
+};

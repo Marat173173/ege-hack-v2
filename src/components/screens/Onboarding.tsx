@@ -28,7 +28,7 @@ export function Onboarding() {
     else {
       // сохранить целевой балл из шага 2 (был локальным стейтом — терялся)
       updateProfile({ targetScore: goal });
-      setScreen("format"); // после онбординга — выбор формата (Шпиль/Тропа)
+      setScreen("diagnostic"); // входной срез → калибровка Шпиля → выбор формата
     }
   }
   function back() {
@@ -166,13 +166,14 @@ export function Onboarding() {
                   <ListChecks size={18} />
                   <span className="hud-label text-[11px]">Входной срез</span>
                 </div>
-                <h2 className="m-0 mb-1 font-serif text-2xl text-hi">10–15 заданий</h2>
+                <h2 className="m-0 mb-1 font-serif text-2xl text-hi">Быстрый срез</h2>
                 <p className="m-0 mb-5 text-[13px] leading-relaxed text-mid">
-                  Быстрый срез по темам, чтобы стартовые этажи Шпиля отражали{" "}
-                  <em className="not-italic text-hi">реальный уровень</em>, а не нули. Займёт ~7 минут.
+                  Отметь по нескольким темам, что уже знаешь — стартовые этажи Шпиля
+                  отразят твой <em className="not-italic text-hi">реальный уровень</em>, а
+                  не нули. Минута, без заданий.
                 </p>
                 <div className="space-y-2">
-                  {["Тестовая часть — мгновенно и алгоритмом", "Один развёрнутый ответ — для калибровки", "Сразу видишь свой первый Шпиль"].map(
+                  {["Оцени темы: «не знаю» → «уверенно»", "Шпиль строится под твой уровень", "Переоценить можно в любой момент"].map(
                     (t, i) => (
                       <div
                         key={i}
@@ -201,7 +202,7 @@ export function Onboarding() {
             onClick={next}
             className="glossy-btn flex min-h-[44px] items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-bold"
           >
-            {step < STEPS.length - 1 ? "Дальше" : "Построить Шпиль"}
+            {step < STEPS.length - 1 ? "Дальше" : "Начать срез"}
             <ArrowRight size={16} />
           </button>
         </div>
