@@ -206,9 +206,6 @@ export const Modal = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
-          onPointerDown={(e) => {
-            if (dismissable && e.target === e.currentTarget) onClose();
-          }}
           role="dialog"
           aria-modal="true"
           aria-label={ariaLabel}
@@ -220,13 +217,30 @@ export const Modal = ({
             alignItems: isMobile ? "flex-end" : "center",
             justifyContent: "center",
             padding: isMobile ? 0 : 16,
-            background: scrim,
-            // только мягкий расфокус фона — БЕЗ brightness: сцена и так тёмная,
-            // затемнение делало экран почти чёрным
-            backdropFilter: "blur(12px) saturate(120%)",
-            WebkitBackdropFilter: "blur(12px) saturate(120%)",
+            // ВАЖНО: НИКАКИХ background/backdrop-filter на этом контейнере —
+            // iOS Safari при backdrop-filter на родителе панели растеризует и
+            // размывает ДЕТЕЙ вместе с фоном (контент модалки «в мыле»).
+            // Скрим и блюр живут в отдельном слое-сиблинге ниже.
           }}
         >
+          {/* скрим — СИБЛИНГ панели (фикс iOS-бага с blur на родителе);
+              панель с zIndex:1 перекрывает его, дисмис по фону — здесь */}
+          <div
+            data-scrim
+            aria-hidden="true"
+            onPointerDown={() => {
+              if (dismissable) onClose();
+            }}
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: scrim,
+              // только мягкий расфокус фона — БЕЗ brightness: сцена и так тёмная,
+              // затемнение делало экран почти чёрным
+              backdropFilter: "blur(12px) saturate(120%)",
+              WebkitBackdropFilter: "blur(12px) saturate(120%)",
+            }}
+          />
           {isMobile ? (
             /* ——— МОБАЙЛ: bottom-sheet ——— */
             <motion.div

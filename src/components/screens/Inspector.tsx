@@ -207,16 +207,24 @@ export function Inspector() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onMouseDown={(e) => e.target === e.currentTarget && closeInspector()}
-            style={{
-              background: "rgb(var(--scrim) / 0.42)",
-              // только мягкий расфокус (без brightness)
-              backdropFilter: "blur(12px) saturate(120%)",
-              WebkitBackdropFilter: "blur(12px) saturate(120%)",
-            }}
           >
+            {/* скрим — СИБЛИНГ шита: backdrop-filter на родителе панели заставляет
+                iOS Safari размывать и ДЕТЕЙ (контент «в мыле»), поэтому блюр
+                живёт в отдельном слое; дисмис по фону — здесь */}
+            <div
+              data-scrim
+              aria-hidden="true"
+              className="absolute inset-0"
+              onMouseDown={closeInspector}
+              style={{
+                background: "rgb(var(--scrim) / 0.42)",
+                // только мягкий расфокус (без brightness)
+                backdropFilter: "blur(12px) saturate(120%)",
+                WebkitBackdropFilter: "blur(12px) saturate(120%)",
+              }}
+            />
             <motion.div
-              className="relative w-full"
+              className="relative z-[1] w-full"
               drag="y"
               dragControls={dragControls}
               dragListener={false}
@@ -267,6 +275,8 @@ export function Inspector() {
             transition={{ type: "spring", stiffness: 220, damping: 28 }}
             className="pointer-events-auto fixed right-0 top-[88px] z-[6] h-[calc(100dvh-100px)] w-full max-w-[392px] px-3 pb-3 md:top-[96px] md:h-[calc(100dvh-112px)] md:px-4 md:pb-4"
           >
+            {/* ИИ-репетитор — «выглядывает» слева от рейла, с фильтром открытой темы */}
+            {mode !== "parent" && floor && <TutorFAB topic={floor.id} variant="rail" />}
             <LiquidGlass sheen className="thin-scroll h-full overflow-y-auto rounded-2xl p-4 md:p-5">
               {content}
             </LiquidGlass>

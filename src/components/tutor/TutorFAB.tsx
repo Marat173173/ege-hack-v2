@@ -11,8 +11,19 @@ import { useApp } from "@/lib/store";
  * открытой теме — Инспектор рендерит её над своим bottom-sheet'ом (absolute
  * к шиту, «поднимается наверх над окошком модуля»). Ссылка несёт фильтр
  * открытой темы: /tutor?topic=<код>&subject=<предмет>.
+ *
+ * variant:
+ *  - "sheet" (default) — над мобильным bottom-sheet'ом (absolute -top right);
+ *  - "rail" — «выглядывает» слева от десктопного рейла Инспектора
+ *    (absolute -left, позиционируется от fixed-контейнера рейла).
  */
-export function TutorFAB({ topic }: { topic: string }) {
+export function TutorFAB({
+  topic,
+  variant = "sheet",
+}: {
+  topic: string;
+  variant?: "sheet" | "rail";
+}) {
   const subjectKey = useApp((s) => s.subjectKey);
   // паттерн проекта: rus → "russian" (см. FipiSubtopics/PathScreen)
   const subject = subjectKey === "rus" ? "russian" : subjectKey;
@@ -25,7 +36,9 @@ export function TutorFAB({ topic }: { topic: string }) {
       transition={{ delay: 0.15, type: "spring", stiffness: 280, damping: 22 }}
       whileTap={{ scale: 0.92 }}
       aria-label={`Спросить ИИ-репетитора по теме ${topic}`}
-      className="focus-ring absolute -top-[54px] right-3 z-[2] grid h-11 w-11 place-items-center rounded-full border"
+      className={`focus-ring absolute z-[2] grid h-11 w-11 place-items-center rounded-full border ${
+        variant === "rail" ? "-left-[56px] top-3" : "-top-[54px] right-3"
+      }`}
       style={{
         background: "rgb(var(--accent) / 0.18)",
         borderColor: "rgb(var(--accent) / 0.4)",
