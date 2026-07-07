@@ -885,6 +885,7 @@ function SpireContent({
             mode={mode}
             focusId={focusId}
             lightMode={lightMode}
+            tier={tier}
             reduceMotion={reduceMotion}
             isLight={isLight}
             locked={locks[index]}

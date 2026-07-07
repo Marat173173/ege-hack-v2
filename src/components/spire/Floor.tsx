@@ -5,9 +5,11 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import type { Floor as FloorData } from "@/data/types";
+import type { Tier } from "@/lib/device-tier";
 import { floorState, ringColor } from "@/lib/floor-state";
 import { buildHeightFactor } from "@/lib/floor-build";
 import { makeTexture } from "./textures";
+import { makeHologramMaterial } from "./hologram-material";
 import { bodyGeometry, bodyHeight, ringRadius } from "./geometry";
 
 interface FloorProps {
@@ -17,6 +19,7 @@ interface FloorProps {
   mode: "student" | "parent";
   focusId: string | null;
   lightMode: boolean;
+  tier: Tier;
   reduceMotion: boolean;
   isLight: boolean;
   /** Этаж заблокирован гейтингом — призрак-каркас + замок, но кликабелен. */
@@ -35,6 +38,7 @@ export function Floor({
   mode,
   focusId,
   lightMode,
+  tier,
   reduceMotion,
   isLight,
   locked,
@@ -60,6 +64,18 @@ export function Floor({
   // Тор/гранник/корона (особые темы/босс) — особая топология, скейл по Y
   // на повёрнутом торе выглядит странно: оставляем их в полный рост.
   const canGrow = !["torus", "facet", "core"].includes(floor.geom);
+
+  // ——— Голограмма призрака (замена унылому wireframe) ———
+  // Перф-контракт: low-tier и lightMode остаются на старом wireframe-пути
+  // (дешёвый MeshStandardMaterial), reduceMotion — статичные скан-полосы
+  // (uTime заморожен в useFrame ниже).
+  const isGhost = locked || floorState(floor) === "ghost"; // реактивно от floor.prog
+  const useHolo = isGhost && tier !== "low" && !lightMode;
+
+  const holoMat = React.useMemo(
+    () => (useHolo ? makeHologramMaterial(floor.hue) : null),
+    [useHolo, floor.hue]
+  );
 
   const material = React.useMemo(() => {
     const m = new THREE.MeshStandardMaterial({
@@ -148,6 +164,7 @@ export function Floor({
   // делаем это вручную, иначе при переключении предметов копится утечка.
   React.useEffect(() => () => geom.dispose(), [geom]);
   React.useEffect(() => () => material.dispose(), [material]);
+  React.useEffect(() => () => holoMat?.dispose(), [holoMat]);
   React.useEffect(() => () => ringMat.dispose(), [ringMat]);
   React.useEffect(() => () => haloMat?.dispose(), [haloMat]);
   React.useEffect(() => {
@@ -164,14 +181,16 @@ export function Floor({
   React.useEffect(() => {
     applyStateVisual();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [floor.prog, floor.stab, mode, focusId, isLight, locked, material, ringMat, haloMat]);
+  }, [floor.prog, floor.stab, mode, focusId, isLight, locked, material, ringMat, haloMat, useHolo, holoMat]);
 
   function applyStateVisual() {
     // заблокированный этаж рендерим как «призрак-каркас» вне зависимости от
     // реального состояния — он виден на карте, но приглушён, с замком.
     const st = locked ? "ghost" : floorState(floor);
     const m = material;
-    m.wireframe = st === "ghost";
+    // при голограмме тело рисует holoMat — шейдер сам даёт «объём»,
+    // каркас не нужен (и стандартный материал в этот момент не виден)
+    m.wireframe = st === "ghost" && !useHolo;
     m.color.set(floor.hue);
 
     // в светлой теме материал должен быть ПЛОТНЕЕ и менее «свечёным»,
@@ -209,6 +228,9 @@ export function Floor({
     if (sh?.uniforms?.uRimStrength) {
       sh.uniforms.uRimStrength.value = isLight ? 0.2 : st === "ghost" ? 0.32 : 0.55;
     }
+
+    // голограмма: тема — через uniform (пигмент темнее/альфа плотнее на светлом)
+    if (holoMat) holoMat.uniforms.uLight.value = isLight ? 1 : 0;
 
     ringMat.color.setHex(ringColor(st, isLight));
     ringMat.opacity = st === "ghost" ? (isLight ? 0.75 : 0.4) : 1;
@@ -271,6 +293,14 @@ export function Floor({
     // заблокированный — всегда «призрак» (без дрожи), как в applyStateVisual
     const st = locked ? "ghost" : floorState(floor);
     const snap = reduceMotion || lightMode;
+
+    // —— голограмма: время скан-линий + фокус-дим ——
+    if (holoMat) {
+      // reduce-motion: полосы статичны (uTime заморожен в 0)
+      holoMat.uniforms.uTime.value = reduceMotion ? 0 : t;
+      // фокус: остальные этажи притухают (тот же dim, что в applyStateVisual)
+      holoMat.uniforms.uOpacity.value = focusId && floor.id !== focusId ? 0.2 : 1;
+    }
 
     // —— рост тела этажа по освоению (анкер у основания) ——
     const body = bodyRef.current;
@@ -369,7 +399,7 @@ export function Floor({
       <mesh
         ref={bodyRef}
         geometry={geom}
-        material={material}
+        material={useHolo && holoMat ? holoMat : material}
         rotation={floor.geom === "torus" ? [Math.PI / 2, 0, 0] : [0, 0, 0]}
       />
 
