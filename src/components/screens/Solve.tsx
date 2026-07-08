@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, Check, X, Sparkles, Timer, Send, Flame, Zap } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { XP, comboMultiplier } from "@/lib/gamification";
+import { computeScore } from "@/lib/score-model";
 import { playCorrect, playWrong, playCombo } from "@/lib/sound";
 import { buzz, HAPTIC } from "@/lib/haptics";
 import { useToast } from "./Toast";
@@ -24,6 +25,7 @@ type Task = { q: string; options: string[]; correct: number; hint: string; topic
 export function Solve() {
   const setScreen = useApp((s) => s.setScreen);
   const floor = useApp((s) => s.floorById(s.solveFloorId));
+  const subject = useApp((s) => s.subject());
   const bump = useApp((s) => s.bump);
   const gainXp = useApp((s) => s.gainXp);
   const resetCombo = useApp((s) => s.resetCombo);
@@ -137,10 +139,16 @@ export function Solve() {
       setIdx(tasksList.length); // done
     }
   }
+  // Единая формула зачёта сессии — и для реального bump в finish(), и для
+  // проекции прогноза на итогах. Менять только здесь, иначе разойдутся.
+  function sessionGain() {
+    const gained = Math.round((score / tasksList.length) * 18);
+    return { gained, dStab: Math.round(gained * 0.6) };
+  }
   function finish() {
     if (floor) {
-      const gained = Math.round((score / tasksList.length) * 18);
-      bump(floor.id, gained, Math.round(gained * 0.6));
+      const { gained, dStab } = sessionGain();
+      bump(floor.id, gained, dStab);
       gainXp(XP.trainComplete);
       toast(`Тренировка засчитана: <b>+${gained}</b> к освоению «${floor.name}».`);
     }
@@ -153,6 +161,25 @@ export function Solve() {
 
   // Срез пройден → экран «Итоги тренировки» вместо инлайнового done-блока.
   if (done && !loadingTasks && !loadError && tasksList.length > 0) {
+    // Прогноз ЕГЭ с учётом ЭТОЙ сессии: bump применится только в finish() (при
+    // выходе с итогов), поэтому зачёт проецируем на копию этажей — иначе
+    // диапазон показал бы состояние «до тренировки».
+    const { gained, dStab } = sessionGain();
+    const projected =
+      subject && floor
+        ? computeScore({
+            ...subject,
+            floors: subject.floors.map((f) =>
+              f.id === floor.id
+                ? {
+                    ...f,
+                    prog: Math.min(100, f.prog + gained),
+                    stab: Math.min(100, f.stab + dStab),
+                  }
+                : f
+            ),
+          })
+        : null;
     return (
       <ResultsScreen
         floorName={floor?.name ?? "Тренировка"}
@@ -161,7 +188,7 @@ export function Solve() {
         seconds={seconds}
         xpGained={sessionXp}
         mistakes={mistakes}
-        // scoreRange={{ low, high }}  // TODO: подключить из score-model.ts (floorReadiness → балл)
+        scoreRange={projected ? { low: projected.min, high: projected.max } : undefined}
         onNext={finish}
         // «к Шпилю» ТОЖЕ фиксирует результат (finish: bump+XP+toast+resetCombo),
         // раньше молча терял сессию
