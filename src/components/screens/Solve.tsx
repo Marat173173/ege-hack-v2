@@ -5,7 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, Check, X, Sparkles, Timer, Send, Flame, Zap } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { XP, comboMultiplier } from "@/lib/gamification";
-import { computeScore } from "@/lib/score-model";
+import { computeScore, type ScoreResult } from "@/lib/score-model";
 import { playCorrect, playWrong, playCombo } from "@/lib/sound";
 import { buzz, HAPTIC } from "@/lib/haptics";
 import { useToast } from "./Toast";
@@ -48,10 +48,23 @@ export function Solve() {
   const gainSeq = React.useRef(0);
   const flashTimer = React.useRef<ReturnType<typeof setTimeout>>();
 
+  // Снапшот «было/стало» для итогов: считается ОДИН раз при завершении сессии.
+  // Без заморозки bump() из finish() менял subject, Solve ре-рендерился во время
+  // exit-анимации экрана (AnimatePresence mode="wait" в page.tsx) — и цифры
+  // прогноза прыгали на глазах (зачёт накладывался второй раз).
+  const resultsSnap = React.useRef<{
+    before: ScoreResult | null;
+    projected: ScoreResult | null;
+  } | null>(null);
+
+  // сессия завершена → экран итогов: таймер замирает, снапшот заморожен
+  const sessionOver = tasksList.length > 0 && idx >= tasksList.length;
+
   React.useEffect(() => {
+    if (sessionOver) return; // на итогах время не тикает (и не дёргает ре-рендеры)
     const t = setInterval(() => setSeconds((s) => s + 1), 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [sessionOver]);
 
   // Загружаем задания по этажу
   React.useEffect(() => {
@@ -63,6 +76,8 @@ export function Solve() {
     setScore(0);
     setSessionXp(0);
     setMistakes([]);
+    setSeconds(0); // время прошлой сессии не протекает в новую
+    resultsSnap.current = null; // новая сессия — новый снапшот прогноза
 
     fetch(`/api/tasks/floor?id=${encodeURIComponent(floor.id)}&limit=8`)
       .then((r) => r.json())
@@ -164,22 +179,28 @@ export function Solve() {
     // Прогноз ЕГЭ с учётом ЭТОЙ сессии: bump применится только в finish() (при
     // выходе с итогов), поэтому зачёт проецируем на копию этажей — иначе
     // диапазон показал бы состояние «до тренировки».
-    const { gained, dStab } = sessionGain();
-    const projected =
-      subject && floor
-        ? computeScore({
-            ...subject,
-            floors: subject.floors.map((f) =>
-              f.id === floor.id
-                ? {
-                    ...f,
-                    prog: Math.min(100, f.prog + gained),
-                    stab: Math.min(100, f.stab + dStab),
-                  }
-                : f
-            ),
-          })
-        : null;
+    if (!resultsSnap.current) {
+      const { gained, dStab } = sessionGain();
+      resultsSnap.current = {
+        before: subject && floor ? computeScore(subject) : null,
+        projected:
+          subject && floor
+            ? computeScore({
+                ...subject,
+                floors: subject.floors.map((f) =>
+                  f.id === floor.id
+                    ? {
+                        ...f,
+                        prog: Math.min(100, f.prog + gained),
+                        stab: Math.min(100, f.stab + dStab),
+                      }
+                    : f
+                ),
+              })
+            : null,
+      };
+    }
+    const { before, projected } = resultsSnap.current;
     return (
       <ResultsScreen
         floorName={floor?.name ?? "Тренировка"}
@@ -189,6 +210,7 @@ export function Solve() {
         xpGained={sessionXp}
         mistakes={mistakes}
         scoreRange={projected ? { low: projected.min, high: projected.max } : undefined}
+        scoreRangeBefore={before ? { low: before.min, high: before.max } : undefined}
         onNext={finish}
         // «к Шпилю» ТОЖЕ фиксирует результат (finish: bump+XP+toast+resetCombo),
         // раньше молча терял сессию

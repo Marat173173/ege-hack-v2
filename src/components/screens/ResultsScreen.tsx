@@ -17,6 +17,7 @@ import {
   X,
   Sparkles,
   MessageCircle,
+  TrendingUp,
 } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { levelFromXp } from "@/lib/gamification";
@@ -53,8 +54,11 @@ export interface ResultsScreenProps {
   total: number;
   seconds: number;
   xpGained: number;
-  /** Прогноз балла ЕГЭ диапазоном (из score-model). Необязателен. */
+  /** Прогноз балла ЕГЭ диапазоном (из score-model), с учётом этой сессии. */
   scoreRange?: { low: number; high: number };
+  /** Диапазон ДО сессии — для «было → стало» (одна сессия двигает прогноз
+      слабо, поэтому сдвиг показываем явно; без сдвига — «подтверждён»). */
+  scoreRangeBefore?: { low: number; high: number };
   mistakes?: MistakeItem[];
   onNext: () => void; // «Дальше» — обычно finish()
   onBack?: () => void; // «к Шпилю»
@@ -214,6 +218,7 @@ export function ResultsScreen({
   seconds,
   xpGained,
   scoreRange,
+  scoreRangeBefore,
   mistakes = [],
   onNext,
   onBack,
@@ -275,7 +280,7 @@ export function ResultsScreen({
             </motion.div>
             <ScoreRing pct={pct} correct={correct} total={total} color={v.color} />
 
-            {/* балл диапазоном (наш «диапазон прогноза») */}
+            {/* балл диапазоном (наш «диапазон прогноза») + «было → стало» */}
             {scoreRange && (
               <div className="text-center">
                 <div className="font-mono text-[10px] uppercase tracking-wider text-mid">
@@ -287,6 +292,29 @@ export function ResultsScreen({
                   {scoreRange.high}
                   <span className="ml-1.5 font-sans text-[13px] text-mid">баллов</span>
                 </div>
+                {scoreRangeBefore &&
+                  (scoreRangeBefore.low !== scoreRange.low ||
+                  scoreRangeBefore.high !== scoreRange.high ? (
+                    <div className="mt-1.5 flex items-center justify-center gap-1.5 font-mono text-[11px] tabular-nums">
+                      <span className="text-lo line-through">
+                        было {scoreRangeBefore.low}–{scoreRangeBefore.high}
+                      </span>
+                      {/* bump только растит prog/stab → сдвиг всегда в плюс */}
+                      <TrendingUp size={12} aria-hidden="true" style={{ color: SCORE.high }} />
+                      <span style={{ color: SCORE.high }}>
+                        {/* при текущей модели низ растёт всегда, когда что-то
+                            изменилось; generic-ветка — страховка на будущее */}
+                        {scoreRange.low > scoreRangeBefore.low
+                          ? `низ +${scoreRange.low - scoreRangeBefore.low}`
+                          : "диапазон обновился"}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="mt-1.5 font-mono text-[11px] text-lo">
+                      {/* при 0 верных «подтверждён» звучал бы издёвкой */}
+                      {correct > 0 ? "диапазон подтверждён этой тренировкой" : "прогноз не изменился"}
+                    </div>
+                  ))}
               </div>
             )}
 
