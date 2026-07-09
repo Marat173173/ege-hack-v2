@@ -97,5 +97,14 @@ export function validateSubjectDef(def: SubjectDef): string[] {
     if (t.prog < 0 || t.prog > 100) errs.push(`${def.key}/${t.id}: prog вне 0..100`);
     if (t.stab < 0 || t.stab > 100) errs.push(`${def.key}/${t.id}: stab вне 0..100`);
   });
+  // requires: опечатка в id или ссылка на себя = вечный молчаливый замок
+  const allIds = new Set(def.topics.map((t) => t.id));
+  def.topics.forEach((t) => {
+    (t.requires ?? []).forEach((r) => {
+      if (!allIds.has(r.id))
+        errs.push(`${def.key}/${t.id}: requires ссылается на несуществующую тему "${r.id}"`);
+      if (r.id === t.id) errs.push(`${def.key}/${t.id}: requires ссылается сам на себя`);
+    });
+  });
   return errs;
 }

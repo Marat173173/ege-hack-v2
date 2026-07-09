@@ -169,7 +169,19 @@ function loadNudge(): TutorNudge | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(NKEY);
-    if (raw) return JSON.parse(raw) as TutorNudge;
+    if (raw) {
+      const n = JSON.parse(raw) as Partial<TutorNudge>;
+      // битый/старый ключ не должен давать «тест по „undefined“» в чате
+      const ok =
+        n &&
+        typeof n.id === "string" &&
+        typeof n.floorId === "string" &&
+        typeof n.floorName === "string" &&
+        typeof n.subjectKey === "string" &&
+        (n.kind === "review" || n.kind === "followup") &&
+        (n.status === "pending" || n.status === "accepted" || n.status === "declined");
+      if (ok) return n as TutorNudge;
+    }
   } catch {
     /* ignore */
   }

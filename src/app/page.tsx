@@ -86,11 +86,14 @@ export default function Page() {
   // Покрывает и «после итогов» (finish → spire), и «при каждом заходе».
   React.useEffect(() => {
     if (screen !== "spire" || nudgeStatus !== "pending") return;
-    if (Date.now() - nudgeShownAt.current < 90_000) return;
+    // не чаще раза в 90с, но по истечении окна тост показываем и на ТЕКУЩЕМ
+    // визите (раньше при двух быстрых сессиях подряд показ терялся до
+    // следующей смены экрана)
+    const wait = Math.max(5000, 90_000 - (Date.now() - nudgeShownAt.current));
     const t = setTimeout(() => {
       nudgeShownAt.current = Date.now();
       showNudge();
-    }, 5000);
+    }, wait);
     return () => clearTimeout(t);
   }, [screen, nudgeStatus, showNudge]);
 

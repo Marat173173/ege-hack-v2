@@ -26,7 +26,8 @@ type MistakeItem = {
 const cut = (s: string) => s.slice(0, MAX_STR);
 
 const isCount = (n: unknown): n is number =>
-  typeof n === "number" && Number.isFinite(n) && n >= 0;
+  // верхняя граница: без неё correct=1e18 проходил и ронял Prisma Int4 в 500
+  typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 1_000_000;
 
 /** Возвращает нормализованный массив ошибок либо null, если формат не тот. */
 function parseMistakes(raw: unknown): MistakeItem[] | null {

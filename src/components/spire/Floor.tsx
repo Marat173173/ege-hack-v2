@@ -24,6 +24,8 @@ interface FloorProps {
   isLight: boolean;
   /** Этаж заблокирован гейтингом — призрак-каркас + замок, но кликабелен. */
   locked: boolean;
+  /** Причина замка для подписи (lockReason); без неё — генерик про нижние этажи. */
+  lockLabel?: string;
   /** Этаж сейчас выбран (показываем подпись постоянно). */
   selected: boolean;
   /** Самый слабый из открытых этажей — мягкий «дыхательный» пульс «начни здесь». */
@@ -42,6 +44,7 @@ export function Floor({
   reduceMotion,
   isLight,
   locked,
+  lockLabel,
   selected,
   isWeakest,
   onPick,
@@ -478,7 +481,9 @@ export function Floor({
             }}
           >
             {floor.name}
-            {locked ? "  · укрепи нижние этажи" : ""}
+            {/* причина замка честная: requires-замок пишет «Сначала открой…»,
+                а не генерик про нижние этажи */}
+            {locked ? `  · ${lockLabel ?? "укрепи нижние этажи"}` : ""}
           </div>
         </Html>
       )}

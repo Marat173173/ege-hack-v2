@@ -58,6 +58,7 @@ export function Solve() {
     before: ScoreResult | null;
     projected: ScoreResult | null;
   } | null>(null);
+  const finishedRef = React.useRef(false); // guard от двойного finish()
 
   // сессия завершена → экран итогов: таймер замирает, снапшот заморожен
   const sessionOver = tasksList.length > 0 && idx >= tasksList.length;
@@ -80,6 +81,7 @@ export function Solve() {
     setMistakes([]);
     setSeconds(0); // время прошлой сессии не протекает в новую
     resultsSnap.current = null; // новая сессия — новый снапшот прогноза
+    finishedRef.current = false; // и новый зачёт
 
     fetch(`/api/tasks/floor?id=${encodeURIComponent(floor.id)}&limit=8`)
       .then((r) => r.json())
@@ -163,6 +165,10 @@ export function Solve() {
     return { gained, dStab: Math.round(gained * 0.6) };
   }
   function finish() {
+    // идемпотентность: двойной тап по «Дальше» в окно exit-анимации давал
+    // двойной bump/XP, а теперь дал бы и дубль SessionResult в БД
+    if (finishedRef.current) return;
+    finishedRef.current = true;
     if (floor) {
       const { gained, dStab } = sessionGain();
       bump(floor.id, gained, dStab);
@@ -183,6 +189,9 @@ export function Solve() {
           xp: sessionXp,
           mistakes,
         }),
+        // keepalive: onAskTutor сразу делает window.location.href на /tutor —
+        // без него навигация обрывала fetch и сессия молча терялась
+        keepalive: true,
       }).catch(() => {});
       // были ошибки → репетитор «напишет» с предложением разбора.
       // offerNudge синхронно пишет localStorage, поэтому предложение переживёт

@@ -182,6 +182,7 @@ export function SpireScreen() {
           aria-label={`Готовность ${overallReadiness(subject.floors)} процентов — открыть прогресс`}
           className="liquid-glass focus-ring fixed z-[6] flex items-center gap-1.5 rounded-full px-2.5"
           style={{
+            position: "fixed", // .liquid-glass перебивает утилиту .fixed — см. Toast.tsx
             top: "max(0.5rem, env(safe-area-inset-top))",
             left: "max(0.5rem, env(safe-area-inset-left))",
             minHeight: 40,
@@ -223,7 +224,7 @@ export function SpireScreen() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             onClick={closeInspector}
-            style={{ top: "calc(env(safe-area-inset-top) + 56px)", x: "-50%" }}
+            style={{ top: "calc(env(safe-area-inset-top) + 56px)", x: "-50%", position: "fixed" }}
             className="liquid-glass focus-ring fixed left-1/2 z-[5] flex min-h-[44px] items-center gap-2 rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-hi"
           >
             <ArrowLeft size={13} /> к Шпилю

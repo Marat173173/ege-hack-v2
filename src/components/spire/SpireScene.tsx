@@ -8,7 +8,7 @@ import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { Floor } from "./Floor";
 import { bodyHeight, GAP } from "./geometry";
-import { lockMap, floorReadiness, visibleFloors, highestOpenIndex } from "@/lib/floor-build";
+import { lockMap, lockReason, floorReadiness, visibleFloors, highestOpenIndex } from "@/lib/floor-build";
 import { floorState } from "@/lib/floor-state";
 import { spireCameraBus } from "./spire-camera-bus";
 import type { Subject } from "@/data/types";
@@ -1005,6 +1005,7 @@ function SpireContent({
             reduceMotion={reduceMotion}
             isLight={isLight}
             locked={locks[index]}
+            lockLabel={locks[index] ? lockReason(subject.floors, index) : undefined}
             selected={m.floor.id === selectedId}
             isWeakest={m.floor.id === weakestId}
             onPick={onPick}

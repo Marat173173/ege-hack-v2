@@ -41,6 +41,10 @@ export interface RequireGap {
  * Требуемая тема ищется по id во ВСЁМ массиве; отсутствующий id считается
  * выполненным (в dev — предупреждение об опечатке в данных).
  */
+// requiresUnmet зовётся из lockMap на каждый рендер — warn по разу на id,
+// иначе спам в dev-консоли
+const warnedMissingReq = new Set<string>();
+
 export function requiresUnmet(floors: Floor[], index: number): RequireGap[] {
   const reqs = floors[index]?.requires;
   if (!reqs?.length) return [];
@@ -48,7 +52,8 @@ export function requiresUnmet(floors: Floor[], index: number): RequireGap[] {
   for (const r of reqs) {
     const dep = floors.find((f) => f.id === r.id);
     if (!dep) {
-      if (process.env.NODE_ENV !== "production") {
+      if (process.env.NODE_ENV !== "production" && !warnedMissingReq.has(r.id)) {
+        warnedMissingReq.add(r.id);
         console.warn(
           `requires: тема "${r.id}" (пререквизит "${floors[index]?.id}") не найдена — пункт считается выполненным`
         );

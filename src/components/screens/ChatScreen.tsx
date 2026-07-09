@@ -102,9 +102,13 @@ export function ChatScreen() {
   // обрываем запрос к наставнику при размонтировании (уход с экрана)
   React.useEffect(() => () => abortRef.current?.abort(), []);
 
+  // ключ реестра ("rus") → предмет RAG-базы ("russian"); пока живой только русский
+  const RAG_SUBJECT: Record<string, string> = { rus: "russian" };
+
   async function askTutor(payload: AskPayload) {
     lastAskRef.current = payload;
     setTyping(true);
+    abortRef.current?.abort(); // не копим параллельные запросы
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     try {
@@ -113,7 +117,7 @@ export function ChatScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           question: payload.question,
-          subject: "russian",
+          subject: RAG_SUBJECT[tutorNudge?.subjectKey ?? "rus"] ?? "russian",
           history: buildHistory(aiMsgs),
           ...(payload.mistakes ? { mistakes: payload.mistakes } : {}),
           ...(payload.mode ? { mode: payload.mode } : {}),
@@ -144,7 +148,7 @@ export function ChatScreen() {
 
   function acceptReview() {
     const n = tutorNudge;
-    if (!n) return;
+    if (!n || typing) return; // guard: параллельно с обычным вопросом не шлём
     setNudgePrompt(false);
     resolveNudge("accepted");
     setAiMsgs((m) => [...m, { id: ++seq.current, who: "me", text: "Давай" }]);
@@ -270,7 +274,9 @@ export function ChatScreen() {
                     background: mine
                       ? "rgb(var(--accent))"
                       : "rgb(var(--glass-hi)/0.05)",
-                    color: mine ? "rgb(var(--bg-0))" : "rgb(var(--hi))",
+                    // фиксированные тёмные чернила: rgb(var(--bg-0)) в светлой
+                    // теме давал контраст 1.27:1 на янтарной заливке
+                    color: mine ? "#070a14" : "rgb(var(--hi))",
                     border: mine ? "none" : "1px solid rgb(var(--line)/0.4)",
                     borderBottomRightRadius: mine ? 6 : undefined,
                     borderBottomLeftRadius: !mine ? 6 : undefined,
