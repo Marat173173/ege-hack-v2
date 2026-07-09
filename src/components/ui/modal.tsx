@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef, useCallback, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useDragControls, useMotionValue, type PanInfo } from "framer-motion";
 import { X, GripHorizontal } from "lucide-react";
 import { useIsMobile } from "@/lib/use-media";
@@ -51,6 +52,10 @@ export const Modal = ({
   const border = colors.border ?? "rgb(var(--glass-hi) / var(--glass-border-a))";
   const closeFg = colors.closeFg ?? "rgb(var(--mid))";
   const closeHoverBg = colors.closeHoverBg ?? "rgb(var(--glass-hi) / 0.1)";
+
+  // портал монтируется только на клиенте (SSR-безопасно)
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -199,7 +204,11 @@ export const Modal = ({
   const glassShadow =
     "inset 0 1px 0 0 rgb(var(--glass-hi) / var(--glass-hi-a)), inset 0 0 26px -8px rgb(var(--glass-hi) / 0.14), 0 40px 90px -40px rgba(0,0,0,0.7)";
 
-  return (
+  // ПОРТАЛ в body: экраны приложения обёрнуты в motion.div со своим
+  // stacking-context, из-за чего zIndex:60 модалки не конкурировал с
+  // элементами снаружи (стрелка таб-бара z-59 рисовалась ПОВЕРХ модалки).
+  if (!mounted) return null;
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -245,6 +254,11 @@ export const Modal = ({
           {isMobile ? (
             /* ——— МОБАЙЛ: bottom-sheet ——— */
             <motion.div
+              /* key ОБЯЗАТЕЛЕН: useIsMobile() на первом кадре после маунта =
+                 false → монтируется десктоп-ветка, кадром позже подменяется
+                 этой. Без key подмена идёт на ТОМ ЖЕ DOM-узле, framer-motion
+                 бросает анимацию появления на ~2% — модалка-«призрак». */
+              key="sheet"
               ref={panelRef}
               tabIndex={-1}
               drag="y"
@@ -298,6 +312,7 @@ export const Modal = ({
           ) : (
             /* ——— ДЕСКТОП: центрированная перетаскиваемая карточка ——— */
             <motion.div
+              key="card"
               ref={panelRef}
               tabIndex={-1}
               drag={draggable}
@@ -344,7 +359,8 @@ export const Modal = ({
           `}</style>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
