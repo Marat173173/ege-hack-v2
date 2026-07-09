@@ -4,6 +4,7 @@ import * as React from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, Check, X, Sparkles, Timer, Send, Flame, Zap } from "lucide-react";
 import { useApp } from "@/lib/store";
+import { getAnonId } from "@/lib/anon-id";
 import { XP, comboMultiplier } from "@/lib/gamification";
 import { computeScore, type ScoreResult } from "@/lib/score-model";
 import { playCorrect, playWrong, playCombo } from "@/lib/sound";
@@ -29,6 +30,7 @@ export function Solve() {
   const bump = useApp((s) => s.bump);
   const gainXp = useApp((s) => s.gainXp);
   const resetCombo = useApp((s) => s.resetCombo);
+  const offerNudge = useApp((s) => s.offerNudge);
   const combo = useApp((s) => s.game.combo);
   const lightMode = useApp((s) => s.lightMode);
   const toast = useToast();
@@ -166,6 +168,36 @@ export function Solve() {
       bump(floor.id, gained, dStab);
       gainXp(XP.trainComplete);
       toast(`Тренировка засчитана: <b>+${gained}</b> к освоению «${floor.name}».`);
+      // fire-and-forget: сессия уходит в БД, UX ответа не ждёт
+      fetch("/api/session/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          anonId: getAnonId(),
+          floorId: floor.id,
+          subject: subject.key,
+          kind: "train",
+          correct: score,
+          total: tasksList.length,
+          seconds,
+          xp: sessionXp,
+          mistakes,
+        }),
+      }).catch(() => {});
+      // были ошибки → репетитор «напишет» с предложением разбора.
+      // offerNudge синхронно пишет localStorage, поэтому предложение переживёт
+      // и window.location.href-переход на /tutor из onAskTutor.
+      if (mistakes.length > 0) {
+        offerNudge({
+          kind: "review",
+          floorId: floor.id,
+          floorName: floor.name,
+          subjectKey: subject.key,
+          correct: score,
+          total: tasksList.length,
+          mistakes,
+        });
+      }
     }
     resetCombo();
     setScreen("spire");

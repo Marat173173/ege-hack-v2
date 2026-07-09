@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Send, Bot, Users, ShieldAlert, Sparkles } from "lucide-react";
+import { ArrowLeft, Send, Bot, Users, ShieldAlert, Sparkles, RotateCcw } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
+import type { MistakeItem } from "@/components/screens/ResultsScreen";
 
 type Tab = "ai" | "community";
 
@@ -13,22 +14,25 @@ interface Msg {
   who: "me" | "ai" | string; // имя для community
   text: string;
   hue?: number; // цвет аватара для community
+  source?: string; // заголовок источника из RAG (только ai)
+  retry?: boolean; // сообщение об ошибке сети с кнопкой «Повторить»
 }
 
-// мок-ответы ИИ-наставника по ключевым словам (реальный LLM подключается позже)
-function aiReply(q: string): string {
-  const t = q.toLowerCase();
-  if (/сочин|к2|пример|связ/.test(t))
-    return "В сочинении главный недобор — пояснение связи между примерами (К2). Приведи два примера-иллюстрации и одной фразой объясни, как они работают вместе: «противопоставляя… автор показывает…». Это +1–3 балла. Хочешь, разберём на твоём тексте?";
-  if (/парам|a<0|случа|дискрим/.test(t))
-    return "В задаче с параметром чаще всего теряют балл на неразобранном случае (например a < 0) и на арифметике в конце. Выпиши ВСЕ случаи отдельно и проверь ответ подстановкой. Скинь своё решение — найду, где просел.";
-  if (/ударени|орфо|правопис/.test(t))
-    return "Орфография (задания 9–15): сначала отсекай слова на чередование и исключения — это «ловушки» задания. Правило сильнее, чем слух: «загорать» → без ударения О. Прислать тебе 5 заданий на тренировку?";
-  if (/привет|здоров|hi|hello/.test(t))
-    return "Привет! Я твой ИИ-наставник по ЕГЭ. Спроси про любую тему — орфография, сочинение, задача с параметром — или скинь своё решение, разберём по критериям ФИПИ.";
-  if (/балл|прогноз|сколько/.test(t))
-    return "Прогноз балла я показываю диапазоном, а не точной цифрой — чем стабильнее темы, тем у́же диапазон. Чтобы поднять нижнюю границу, укрепляй дрожащие зоны: они дают самый быстрый прирост.";
-  return "Понял вопрос. По теме ЕГЭ помогу разобрать критерии, типичные ошибки и дать практику. Уточни тему или пришли своё решение — дам конкретные шаги к максимуму. (В демо ответы заготовлены; на проде здесь работает ИИ по критериям ФИПИ.)";
+interface AskPayload {
+  question: string;
+  mode?: "review";
+  mistakes?: MistakeItem[];
+}
+
+// последние 6 пар «вопрос-ответ» для контекста LLM
+function buildHistory(msgs: Msg[]): { role: "user" | "assistant"; content: string }[] {
+  return msgs
+    .filter((m) => (m.who === "me" || m.who === "ai") && !m.retry)
+    .slice(-12)
+    .map((m) => ({
+      role: m.who === "me" ? ("user" as const) : ("assistant" as const),
+      content: m.text,
+    }));
 }
 
 const COMMUNITY_SEED: Msg[] = [
@@ -41,17 +45,36 @@ const COMMUNITY_SEED: Msg[] = [
 export function ChatScreen() {
   const setScreen = useApp((s) => s.setScreen);
   const profile = useApp((s) => s.profile);
+  const tutorNudge = useApp((s) => s.tutorNudge);
+  const resolveNudge = useApp((s) => s.resolveNudge);
 
   const [tab, setTab] = React.useState<Tab>("ai");
-  const [aiMsgs, setAiMsgs] = React.useState<Msg[]>([
-    { id: 0, who: "ai", text: `Привет, ${profile.name}! Я твой ИИ-наставник. Спроси что угодно по ЕГЭ — разберём по критериям ФИПИ.` },
-  ]);
+  // pending-надж от наставника → вместо приветствия предлагаем разбор теста
+  const [nudgePrompt, setNudgePrompt] = React.useState(tutorNudge?.status === "pending");
+  const [aiMsgs, setAiMsgs] = React.useState<Msg[]>(() =>
+    tutorNudge?.status === "pending"
+      ? [
+          {
+            id: 0,
+            who: "ai",
+            text: `Давай разберём твой тест по „${tutorNudge.floorName}“ — там ты ответил ${tutorNudge.correct ?? 0}/${tutorNudge.total ?? 0}. Пройдёмся подробнее?`,
+          },
+        ]
+      : [
+          {
+            id: 0,
+            who: "ai",
+            text: `Привет, ${profile.name}! Я твой ИИ-наставник. Спроси что угодно по ЕГЭ — разберём по критериям ФИПИ.`,
+          },
+        ]
+  );
   const [commMsgs, setCommMsgs] = React.useState<Msg[]>(COMMUNITY_SEED);
   const [input, setInput] = React.useState("");
   const [typing, setTyping] = React.useState(false);
   const seq = React.useRef(100);
   const scrollRef = React.useRef<HTMLDivElement>(null);
-  const replyTimer = React.useRef<ReturnType<typeof setTimeout>>();
+  const abortRef = React.useRef<AbortController | null>(null);
+  const lastAskRef = React.useRef<AskPayload | null>(null);
   // высота визуального вьюпорта: на iOS клавиатура НЕ сжимает 100dvh, поэтому
   // привязываем высоту экрана к visualViewport — иначе поле ввода и последние
   // сообщения уезжают под клавиатуру.
@@ -76,22 +99,80 @@ export function ChatScreen() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [msgs, typing, tab, vh]);
 
-  // чистим отложенный ответ ИИ при размонтировании (уход с экрана)
-  React.useEffect(() => () => clearTimeout(replyTimer.current), []);
+  // обрываем запрос к наставнику при размонтировании (уход с экрана)
+  React.useEffect(() => () => abortRef.current?.abort(), []);
+
+  async function askTutor(payload: AskPayload) {
+    lastAskRef.current = payload;
+    setTyping(true);
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    try {
+      const res = await fetch("/api/tutor/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: payload.question,
+          subject: "russian",
+          history: buildHistory(aiMsgs),
+          ...(payload.mistakes ? { mistakes: payload.mistakes } : {}),
+          ...(payload.mode ? { mode: payload.mode } : {}),
+        }),
+        signal: ctrl.signal,
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { answer: string; sources?: { title?: string }[] };
+      setAiMsgs((m) => [
+        ...m,
+        { id: ++seq.current, who: "ai", text: data.answer, source: data.sources?.[0]?.title },
+      ]);
+    } catch {
+      if (ctrl.signal.aborted) return;
+      setAiMsgs((m) => [
+        ...m,
+        { id: ++seq.current, who: "ai", text: "Не получилось связаться. Попробуй ещё раз.", retry: true },
+      ]);
+    } finally {
+      if (!ctrl.signal.aborted) setTyping(false);
+    }
+  }
+
+  function retryAsk() {
+    const p = lastAskRef.current;
+    if (p && !typing) void askTutor(p);
+  }
+
+  function acceptReview() {
+    const n = tutorNudge;
+    if (!n) return;
+    setNudgePrompt(false);
+    resolveNudge("accepted");
+    setAiMsgs((m) => [...m, { id: ++seq.current, who: "me", text: "Давай" }]);
+    void askTutor({
+      question: `Разбери мои ошибки из теста по „${n.floorName}“`,
+      mode: "review",
+      mistakes: n.mistakes,
+    });
+  }
+
+  function declineReview() {
+    setNudgePrompt(false);
+    resolveNudge("declined");
+    setAiMsgs((m) => [
+      ...m,
+      { id: ++seq.current, who: "ai", text: "Ок! Если захочешь разобрать — я тут. Возвращайся 👋" },
+    ]);
+  }
 
   function send() {
     const text = input.trim();
     if (!text) return;
+    if (tab === "ai" && typing) return;
     setInput("");
     const mine: Msg = { id: ++seq.current, who: "me", text };
     if (tab === "ai") {
       setAiMsgs((m) => [...m, mine]);
-      setTyping(true);
-      clearTimeout(replyTimer.current);
-      replyTimer.current = setTimeout(() => {
-        setAiMsgs((m) => [...m, { id: ++seq.current, who: "ai", text: aiReply(text) }]);
-        setTyping(false);
-      }, 700 + Math.random() * 600);
+      void askTutor({ question: text });
     } else {
       setCommMsgs((m) => [...m, { ...mine, hue: profile.avatarHue }]);
     }
@@ -196,7 +277,19 @@ export function ChatScreen() {
                   }}
                 >
                   {m.text}
+                  {m.source && (
+                    <div className="mt-1 font-sans text-[11px] text-lo">Источник: {m.source}</div>
+                  )}
                 </div>
+                {m.retry && (
+                  <button
+                    onClick={retryAsk}
+                    disabled={typing}
+                    className="mt-1.5 ml-1 flex min-h-[36px] items-center gap-1.5 rounded-full border border-line bg-[rgb(var(--glass-hi)/0.03)] px-3 py-1.5 text-[12.5px] text-mid transition-colors hover:border-accent/40 hover:text-hi disabled:opacity-40"
+                  >
+                    <RotateCcw size={12} className="text-accent" /> Повторить
+                  </button>
+                )}
               </div>
             </motion.div>
           );
@@ -229,8 +322,26 @@ export function ChatScreen() {
         </AnimatePresence>
       </div>
 
+      {/* предвыбор разбора теста (pending-надж) */}
+      {tab === "ai" && nudgePrompt && (
+        <div className="flex gap-2 border-t border-line px-4 py-2.5">
+          <button
+            onClick={acceptReview}
+            className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-full border border-accent/50 bg-accent/[0.12] px-4 text-[14px] font-semibold text-accent transition-colors hover:bg-accent/[0.2] active:bg-accent/[0.2]"
+          >
+            <Sparkles size={13} /> Давай
+          </button>
+          <button
+            onClick={declineReview}
+            className="flex h-11 flex-1 items-center justify-center rounded-full border border-line bg-[rgb(var(--glass-hi)/0.03)] px-4 text-[14px] font-semibold text-mid transition-colors hover:border-accent/40 hover:text-hi active:border-accent/40"
+          >
+            Нет, спасибо
+          </button>
+        </div>
+      )}
+
       {/* быстрые подсказки (только ИИ) */}
-      {tab === "ai" && (
+      {tab === "ai" && !nudgePrompt && (
         <div className="flex gap-2 overflow-x-auto border-t border-line px-4 py-2.5">
           {["Разбери моё сочинение", "Как добрать К2?", "Объясни задачу с параметром"].map((q) => (
             <button

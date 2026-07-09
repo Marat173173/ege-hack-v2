@@ -17,11 +17,15 @@ import { LeaguesScreen } from "@/components/screens/LeaguesScreen";
 import { DiagnosticScreen } from "@/components/screens/DiagnosticScreen";
 import { BottomTabBar } from "@/components/screens/BottomTabBar";
 import { CelebrationOverlay } from "@/components/screens/CelebrationOverlay";
+import { TutorNudgeToast } from "@/components/screens/TutorNudgeToast";
 
 /** Экраны, где показываем постоянный нижний таб-бар (главные разделы).
  *  На чате бар есть, но авто-спрятан влево (стрелка возвращает).
  *  Solve/интро — фокус-контексты со своим «назад», бар там скрыт. */
 const TABBAR_SCREENS = ["spire", "parent", "leagues", "profile", "chat"] as const;
+
+/** Экраны, где превью «репетитор пишет» неуместно (фокус-контексты и интро). */
+const NUDGE_HIDDEN_SCREENS = ["solve", "landing", "onboarding", "diagnostic", "format"] as const;
 
 /** HSL hue → "r g b" (полная насыщенность, для вторичного акцента). */
 function hueToRgb(h: number, s = 70, l = 58): string {
@@ -64,9 +68,38 @@ export default function Page() {
   const setTheme = useApp((s) => s.setTheme);
   const avatarHue = useApp((s) => s.profile.avatarHue);
   const soundOn = useApp((s) => s.profile.sound);
+  const hydrateNudge = useApp((s) => s.hydrateNudge);
+  const showNudge = useApp((s) => s.showNudge);
+  const hideNudge = useApp((s) => s.hideNudge);
+  const nudgeVisible = useApp((s) => s.nudgeVisible);
+  const nudgeStatus = useApp((s) => s.tutorNudge?.status);
+  // не чаще раза в 90с — иначе превью превращается в спам
+  const nudgeShownAt = React.useRef(0);
 
   // настройка звука из профиля → модуль звука
   React.useEffect(() => setSoundEnabled(soundOn), [soundOn]);
+
+  // подтянуть «сообщение репетитора» из localStorage (переживает перезагрузку)
+  React.useEffect(() => hydrateNudge(), [hydrateNudge]);
+
+  // триггер показа: на Шпиле с неотвеченным предложением — превью через 5с.
+  // Покрывает и «после итогов» (finish → spire), и «при каждом заходе».
+  React.useEffect(() => {
+    if (screen !== "spire" || nudgeStatus !== "pending") return;
+    if (Date.now() - nudgeShownAt.current < 90_000) return;
+    const t = setTimeout(() => {
+      nudgeShownAt.current = Date.now();
+      showNudge();
+    }, 5000);
+    return () => clearTimeout(t);
+  }, [screen, nudgeStatus, showNudge]);
+
+  // guard: на фокус-экранах уже показанное превью прячем (статус остаётся pending)
+  React.useEffect(() => {
+    if (nudgeVisible && (NUDGE_HIDDEN_SCREENS as readonly string[]).includes(screen)) {
+      hideNudge();
+    }
+  }, [screen, nudgeVisible, hideNudge]);
 
   // тема: акцент выводится из палитры предмета в реестре (работает для ЛЮБОГО
   // числа предметов) + спокойный родительский режим. Вторичный акцент (--accent-2,
@@ -131,6 +164,10 @@ export default function Page() {
             достижения, в т.ч. во время тренировки; очередь дренируется, а не
             копится в лавину */}
         <CelebrationOverlay />
+
+        {/* превью «репетитор пишет» — глобально, поверх празднований;
+            сам рендерится только при nudgeVisible && status === "pending" */}
+        <TutorNudgeToast />
       </ToastProvider>
     </MotionConfig>
   );

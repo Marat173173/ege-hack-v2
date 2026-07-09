@@ -5,6 +5,7 @@ import { SUBJECTS, LIVE_KEYS, type Subject } from "@/data/catalog";
 import { floorState } from "@/lib/floor-state";
 import { DEFAULT_GAME, award, rolloverDay, clampDailyGoal, comboRecordMilestone, type GameState } from "@/lib/gamification";
 import { DEFAULT_PROFILE, type Profile } from "@/lib/profile";
+import type { MistakeItem } from "@/components/screens/ResultsScreen";
 
 type Mode = "student" | "parent";
 export type Theme = "light" | "dark";
@@ -35,6 +36,20 @@ export interface XpPing {
   amount: number;
 }
 
+/** «Сообщение репетитора» — предложение разобрать ошибки после среза. */
+export interface TutorNudge {
+  id: string;
+  kind: "review" | "followup";
+  floorId: string;
+  floorName: string;
+  subjectKey: string;
+  correct?: number;
+  total?: number;
+  mistakes?: MistakeItem[];
+  createdAt: number;
+  status: "pending" | "accepted" | "declined";
+}
+
 interface AppState {
   subjectKey: string;
   mode: Mode;
@@ -58,6 +73,11 @@ interface AppState {
   /** Очередь празднований; показывается celebrationQueue[0]. */
   celebrationQueue: Celebration[];
   xpPing: XpPing | null;
+
+  // ——— «репетитор пишет» (nudge) ———
+  tutorNudge: TutorNudge | null;
+  /** Показ превью-тоста (не персистится: показом рулит Page). */
+  nudgeVisible: boolean;
 
   subject: () => Subject;
   floorById: (id: string | null) => Subject["floors"][number] | undefined;
@@ -89,6 +109,13 @@ interface AppState {
 
   // профиль
   updateProfile: (patch: Partial<Profile>) => void;
+
+  // nudge-экшены
+  offerNudge: (n: Omit<TutorNudge, "id" | "createdAt" | "status">) => void;
+  resolveNudge: (status: "accepted" | "declined") => void;
+  hydrateNudge: () => void;
+  showNudge: () => void;
+  hideNudge: () => void;
 }
 
 const clone = (): Record<string, Subject> => JSON.parse(JSON.stringify(SUBJECTS));
@@ -137,6 +164,33 @@ function saveProfile(p: Profile) {
   }
 }
 
+const NKEY = "egehack.nudge.v1";
+function loadNudge(): TutorNudge | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(NKEY);
+    if (raw) return JSON.parse(raw) as TutorNudge;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+function saveNudge(n: TutorNudge) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(NKEY, JSON.stringify(n));
+  } catch {
+    /* ignore */
+  }
+}
+
+function genNudgeId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 let pingId = 0;
 
 export const useApp = create<AppState>((set, get) => ({
@@ -158,6 +212,9 @@ export const useApp = create<AppState>((set, get) => ({
   game: DEFAULT_GAME, // реальное значение подтянется ensureDay() после маунта
   celebrationQueue: [],
   xpPing: null,
+
+  tutorNudge: null, // реальное значение подтянется hydrateNudge() после маунта
+  nudgeVisible: false,
 
   subject: () => get().data[get().subjectKey],
   floorById: (id) =>
@@ -380,6 +437,37 @@ export const useApp = create<AppState>((set, get) => ({
       saveProfile(profile);
       return { profile };
     }),
+
+  // Новое предложение репетитора: pending review всегда замещается свежим —
+  // разбирать актуальнее последнюю сессию. Persist СИНХРОННЫЙ: вызов из
+  // finish() в Solve должен пережить window.location.href-переход на /tutor.
+  offerNudge: (n) => {
+    const nudge: TutorNudge = {
+      ...n,
+      id: genNudgeId(),
+      createdAt: Date.now(),
+      status: "pending",
+    };
+    saveNudge(nudge);
+    set({ tutorNudge: nudge });
+  },
+
+  resolveNudge: (status) =>
+    set((st) => {
+      if (!st.tutorNudge) return {};
+      const tutorNudge: TutorNudge = { ...st.tutorNudge, status };
+      saveNudge(tutorNudge);
+      return { tutorNudge, nudgeVisible: false };
+    }),
+
+  // вызывать на маунте Page: подтянуть сообщение из localStorage
+  hydrateNudge: () => {
+    const tutorNudge = loadNudge();
+    if (tutorNudge) set({ tutorNudge });
+  },
+
+  showNudge: () => set({ nudgeVisible: true }),
+  hideNudge: () => set({ nudgeVisible: false }),
 }));
 
 function pluralWeeks(n: number): string {
