@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import { AnimatePresence, motion, useDragControls, type PanInfo } from "framer-motion";
-import { X, Dumbbell, Timer, ScanLine, Sparkles, GraduationCap, FlaskConical } from "lucide-react";
+import { X, Dumbbell, Timer, ScanLine, Sparkles, GraduationCap, FlaskConical, Lock } from "lucide-react";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
 import { TutorFAB } from "@/components/tutor/TutorFAB";
 import { useApp } from "@/lib/store";
 import { useIsMobile } from "@/lib/use-media";
 import { floorState, STATE_META } from "@/lib/floor-state";
 import { computeScore } from "@/lib/score-model";
+import { lockMap, lockReason } from "@/lib/floor-build";
 import { FipiSubtopics } from "@/components/spire/FipiSubtopics";
 
 function StateChip({ state }: { state: ReturnType<typeof floorState> }) {
@@ -81,6 +82,7 @@ export function Inspector() {
   const mode = useApp((s) => s.mode);
   const selectedId = useApp((s) => s.selectedId);
   const floor = useApp((s) => s.floorById(s.selectedId));
+  const subject = useApp((s) => s.subject());
   const closeInspector = useApp((s) => s.closeInspector);
   const openSolve = useApp((s) => s.openSolve);
   const openModal = useApp((s) => s.openModal);
@@ -97,6 +99,11 @@ export function Inspector() {
   const onSheetDragEnd = (_: unknown, info: PanInfo) => {
     if (info.offset.y > 110 || info.velocity.y > 600) closeInspector();
   };
+
+  // закрытая тема (окно/requires): вместо действий — плашка с причиной
+  const locks = React.useMemo(() => lockMap(subject.floors), [subject.floors]);
+  const floorIndex = floor ? subject.floors.findIndex((f) => f.id === floor.id) : -1;
+  const locked = floorIndex >= 0 && locks[floorIndex];
 
   const content =
     mode === "parent" ? (
@@ -127,6 +134,16 @@ export function Inspector() {
                   />
                 </div>
 
+                {locked ? (
+                  /* закрытые темы не тренируем: показываем причину блокировки */
+                  <div className="flex items-start gap-2.5 rounded-xl border border-line bg-white/[0.02] p-3">
+                    <Lock size={16} className="mt-0.5 shrink-0 text-lo" />
+                    <p className="m-0 text-[12.5px] leading-snug text-mid">
+                      {lockReason(subject.floors, floorIndex)}
+                    </p>
+                  </div>
+                ) : (
+                <>
                 <div className="space-y-2">
                   {/* Детальный урок — открывает модалку-карусель */}
                   <button
@@ -185,6 +202,8 @@ export function Inspector() {
                         : "Это «корона» — вторая часть. Самый большой запас баллов. Пройди симуляцию в формате экзамена."}
                     </p>
                   </div>
+                )}
+                </>
                 )}
 
                 {/* ⚠️ ВРЕМЕННО (тест Шпиля): мгновенно засчитывает модуль

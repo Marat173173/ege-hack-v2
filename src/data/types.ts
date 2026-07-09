@@ -70,6 +70,11 @@ export interface TopicDef {
   sum?: string;
   /** Карточки детального урока (показываются в модалке-карусели). */
   lessons?: LessonCard[];
+  /**
+   * Пререквизиты: тема закрыта, пока указанные темы не достигли порогов;
+   * действует ВМЕСТЕ с префикс-окном (AND).
+   */
+  requires?: { id: string; minProg?: number; minStab?: number }[];
 }
 
 /**
@@ -120,6 +125,11 @@ export interface Floor {
   crit?: Criterion[];
   sum?: string;
   lessons?: LessonCard[];
+  /**
+   * Пререквизиты: тема закрыта, пока указанные темы не достигли порогов;
+   * действует ВМЕСТЕ с префикс-окном (AND).
+   */
+  requires?: { id: string; minProg?: number; minStab?: number }[];
 }
 
 export interface Subject {

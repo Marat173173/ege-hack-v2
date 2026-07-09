@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Gauge } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { detectTier, type Tier } from "@/lib/device-tier";
-import { isLocked, unlockGap, highestOpenIndex, overallReadiness } from "@/lib/floor-build";
+import { isLocked, lockReason, highestOpenIndex, overallReadiness } from "@/lib/floor-build";
 import { PixelBloom, type BloomTrigger } from "@/components/spire/PixelBloom";
 import { SpireRail } from "@/components/spire/SpireRail";
 import { useIsMobile } from "@/lib/use-media";
@@ -105,14 +105,11 @@ export function SpireScreen() {
     const f = floorById(id);
     setShowHint(false);
 
-    // мягкий гейт: заблокированный этаж не открывает тренировку — показываем,
-    // что нужно укрепить нижние этажи
+    // мягкий гейт: заблокированный этаж не открывает тренировку — причина
+    // (окно или невыполненные requires) приходит из lockReason()
     const idx = subject.floors.findIndex((x) => x.id === id);
     if (idx >= 0 && isLocked(subject.floors, idx)) {
-      const gap = unlockGap(subject.floors, idx);
-      toast(
-        `🔒 «${f?.name ?? ""}» пока закрыт. Укрепи нижние темы ещё на <b>~${gap}%</b> готовности, чтобы открыть.`
-      );
+      toast(`🔒 «${f?.name ?? ""}»: ${lockReason(subject.floors, idx)}`);
       return;
     }
 

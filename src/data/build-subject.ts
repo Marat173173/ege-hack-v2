@@ -66,6 +66,7 @@ export function buildSubject(
     crit: t.crit,
     sum: t.sum,
     lessons: t.lessons,
+    requires: t.requires,
   }));
 
   return {

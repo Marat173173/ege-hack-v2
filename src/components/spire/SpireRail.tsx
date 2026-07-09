@@ -3,7 +3,8 @@
 import * as React from "react";
 import { useApp } from "@/lib/store";
 import { floorState, STATE_META } from "@/lib/floor-state";
-import { lockMap } from "@/lib/floor-build";
+import { lockMap, lockReason } from "@/lib/floor-build";
+import { useToast } from "@/components/screens/Toast";
 import { spireCameraBus } from "./spire-camera-bus";
 
 /** Порог (мс) удержания без движения, после которого включается зум-ин. */
@@ -32,6 +33,7 @@ export function SpireRail() {
   const focusId = useApp((s) => s.focusId);
   const selectedId = useApp((s) => s.selectedId);
   const mode = useApp((s) => s.mode);
+  const toast = useToast();
 
   const floors = subject.floors;
   const locks = React.useMemo(() => lockMap(floors), [floors]);
@@ -75,7 +77,11 @@ export function SpireRail() {
     const h = Math.max(1, r.height - RAIL_PAD * 2);
     const frac = 1 - (clientY - top) / h; // низ = этаж 0
     const idx = Math.max(0, Math.min(floors.length - 1, Math.round(frac * (floors.length - 1))));
-    if (locks[idx]) return; // закрытые не открываем — их поднимет гейтинг
+    if (locks[idx]) {
+      // закрытые не открываем — но объясняем почему (окно/requires)
+      toast(`🔒 «${floors[idx].name}»: ${lockReason(floors, idx)}`);
+      return;
+    }
     selectFloor(floors[idx].id, { zoom: true });
   }
 

@@ -27,15 +27,72 @@ export function floorReadiness(f: Pick<Floor, "prog" | "stab">): number {
   return f.prog * 0.7 + f.stab * 0.3;
 }
 
+/** Невыполненный пререквизит: какая тема и какие пороги ей ещё нужны. */
+export interface RequireGap {
+  floor: Floor;
+  /** Требуемое освоение (minProg из requires; 0 — порога нет). */
+  needProg: number;
+  /** Требуемая стабильность (minStab из requires; 0 — порога нет). */
+  needStab: number;
+}
+
 /**
- * Заблокирован ли этаж index. Первый этаж всегда открыт. Каждый следующий
- * открывается, когда средняя готовность всех предыдущих ≥ UNLOCK_THRESHOLD.
+ * Невыполненные пререквизиты этажа index (requires поверх префикс-окна).
+ * Требуемая тема ищется по id во ВСЁМ массиве; отсутствующий id считается
+ * выполненным (в dev — предупреждение об опечатке в данных).
+ */
+export function requiresUnmet(floors: Floor[], index: number): RequireGap[] {
+  const reqs = floors[index]?.requires;
+  if (!reqs?.length) return [];
+  const unmet: RequireGap[] = [];
+  for (const r of reqs) {
+    const dep = floors.find((f) => f.id === r.id);
+    if (!dep) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          `requires: тема "${r.id}" (пререквизит "${floors[index]?.id}") не найдена — пункт считается выполненным`
+        );
+      }
+      continue;
+    }
+    const needProg = r.minProg ?? 0;
+    const needStab = r.minStab ?? 0;
+    if (dep.prog < needProg || dep.stab < needStab) {
+      unmet.push({ floor: dep, needProg, needStab });
+    }
+  }
+  return unmet;
+}
+
+/**
+ * Заблокирован ли этаж index. Первый этаж открыт (если нет своих requires).
+ * Каждый следующий открывается, когда средняя готовность всех предыдущих
+ * ≥ UNLOCK_THRESHOLD И выполнены все его requires (AND поверх окна).
  */
 export function isLocked(floors: Floor[], index: number): boolean {
+  if (requiresUnmet(floors, index).length > 0) return true;
   if (index <= 0) return false;
   const prev = floors.slice(0, index);
   const avg = prev.reduce((s, f) => s + floorReadiness(f), 0) / prev.length;
   return avg < UNLOCK_THRESHOLD;
+}
+
+/**
+ * Человекочитаемая причина блокировки этажа index — единый текст для тостов
+ * и плашек. Сначала requires (конкретная тема-пререквизит), потом окно.
+ */
+export function lockReason(floors: Floor[], index: number): string {
+  const unmet = requiresUnmet(floors, index);
+  if (unmet.length > 0) {
+    const first = unmet[0];
+    const threshold =
+      first.needProg > 0
+        ? `на ≥${first.needProg}%`
+        : `на ≥${first.needStab}% стабильности`;
+    const rest = unmet.length > 1 ? ` … и ещё ${unmet.length - 1} тем` : "";
+    return `Сначала открой „${first.floor.name}“ ${threshold}${rest}`;
+  }
+  return `Пока закрыт. Укрепи нижние темы ещё на ~${unlockGap(floors, index)}% готовности`;
 }
 
 /** Сколько % средней готовности не хватает, чтобы открыть этаж index (0 если открыт). */

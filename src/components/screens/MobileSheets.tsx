@@ -6,7 +6,7 @@ import { Zap, Lock, Check, Crown, BookOpen, Star } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { computeScore, bandColor } from "@/lib/score-model";
 import { floorState, STATE_META } from "@/lib/floor-state";
-import { overallReadiness, isLocked, unlockGap } from "@/lib/floor-build";
+import { overallReadiness, isLocked, lockReason, lockMap } from "@/lib/floor-build";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { useToast } from "./Toast";
 import type { Floor } from "@/data/types";
@@ -38,8 +38,10 @@ function ProgressContent() {
   const sc = computeScore(subject);
   const col = bandColor(sc.half);
   const ready = overallReadiness(subject.floors);
+  // закрытые темы не предлагаем укреплять — они недоступны
+  const locks = lockMap(subject.floors);
   const weak = subject.floors
-    .slice()
+    .filter((_, i) => !locks[i])
     .sort((a, b) => a.prog + a.stab - (b.prog + b.stab))
     .filter((f) => floorState(f) !== "solid")
     .slice(0, 3);
@@ -153,7 +155,7 @@ function LessonPickerContent() {
               key={f.id}
               onClick={() => {
                 if (locked) {
-                  toast(`🔒 «${f.name}» закрыт. Укрепи нижние темы ещё на <b>~${unlockGap(floors, i)}%</b>.`);
+                  toast(`🔒 «${f.name}»: ${lockReason(floors, i)}`);
                   return;
                 }
                 setSheet(null);
@@ -178,7 +180,7 @@ function LessonPickerContent() {
                   {f.boss && <span className="font-mono text-[9px] text-accent">корона</span>}
                 </div>
                 <div className="mt-0.5 text-[11px]" style={{ color: locked ? "rgb(var(--lo))" : meta.color }}>
-                  {locked ? `закрыт · +${unlockGap(floors, i)}% до открытия` : `${meta.label} · освоено ${f.prog}%`}
+                  {locked ? `закрыт · ${lockReason(floors, i)}` : `${meta.label} · освоено ${f.prog}%`}
                 </div>
               </div>
             </button>
