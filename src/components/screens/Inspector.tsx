@@ -149,7 +149,10 @@ export function Inspector() {
                     <small className="font-mono text-[10px] text-lo">+ практика</small>
                   </button>
 
-                  {floor.boss ? (
+                  {/* гейт по crit: у боссов без критериев (русский) кнопка
+                      открывала «ничего» — CritiqueModal возвращал null, а
+                      store.modal застревал; таким боссам даём симуляцию */}
+                  {floor.boss && floor.crit?.length ? (
                     <button
                       onClick={() => openModal("critique", floor.id)}
                       className="flex w-full items-center justify-between rounded-xl border border-line bg-white/[0.03] px-4 py-3 text-left text-hi transition-colors hover:bg-white/[0.06]"
@@ -176,8 +179,10 @@ export function Inspector() {
                   <div className="mt-3 flex items-start gap-2 rounded-xl border border-accent/30 bg-accent/[0.06] p-2.5">
                     <Sparkles size={15} className="mt-0.5 shrink-0 text-accent" />
                     <p className="m-0 text-[11px] leading-snug text-mid">
-                      Это «корона» — вторая часть. Самый большой запас баллов. Открой ИИ-разбор по
-                      критериям ФИПИ.
+                      {/* подсказка соответствует доступной кнопке: без crit ИИ-разбора нет */}
+                      {floor.crit?.length
+                        ? "Это «корона» — вторая часть. Самый большой запас баллов. Открой ИИ-разбор по критериям ФИПИ."
+                        : "Это «корона» — вторая часть. Самый большой запас баллов. Пройди симуляцию в формате экзамена."}
                     </p>
                   </div>
                 )}

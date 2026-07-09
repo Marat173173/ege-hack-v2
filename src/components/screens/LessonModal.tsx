@@ -66,8 +66,13 @@ export function LessonModal({
   // return null размонтировал бы Modal (обрыв exit-анимации + новый маунт на
   // каждое открытие). С кэшем Modal живёт с open=false и закрывается плавно.
   const lastFloorRef = React.useRef<Floor | null>(null);
-  if (floor) lastFloorRef.current = floor;
-  const f = floor ?? lastFloorRef.current;
+  // кэш обновляем только при open: иначе выбор другого этажа во время
+  // exit-анимации подменял бы контент затухающей панели
+  if (open && floor) lastFloorRef.current = floor;
+  // open → только живой этаж (не резолвится id — не показываем чужой урок);
+  // закрыто → ТОЛЬКО кэш: живой floor тут может быть уже другим этажом
+  // (кросс-открытие в окно exit-анимации) — затухающая панель держит своё
+  const f = open ? floor : lastFloorRef.current;
 
   if (!f) return null;
 

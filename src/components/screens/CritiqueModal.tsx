@@ -22,18 +22,28 @@ export function CritiqueModal({
   onClose: () => void;
   onApply: (id: string) => void;
 }) {
-  if (!floor || !floor.crit) return null;
+  // Кэш последнего этажа с критериями: при закрытии ModalHost обнуляет floor,
+  // и мгновенный return null обрывал exit-анимацию Modal (панель исчезала
+  // рывком). С кэшем Modal живёт с open=false и закрывается плавно.
+  // (Тот же паттерн, что в LessonModal.)
+  const lastFloorRef = React.useRef<Floor | null>(null);
+  // кэш обновляем только при open — см. комментарий в LessonModal
+  if (open && floor?.crit?.length) lastFloorRef.current = floor;
+  // open → только живой этаж с непустым crit; закрыто → только кэш
+  const f = open ? (floor?.crit?.length ? floor : null) : lastFloorRef.current;
+
+  if (!f?.crit?.length) return null;
 
   // первая карточка — само задание и ответ, далее по критериям
   const taskCard: DeckCard = {
     badge: "Задание",
     title: "Условие и твой ответ",
-    body: floor.task || "",
-    meta: floor.answer ? "Ответ: " + floor.answer : undefined,
-    accent: floor.hue,
+    body: f.task || "",
+    meta: f.answer ? "Ответ: " + f.answer : undefined,
+    accent: f.hue,
   };
 
-  const critCards: DeckCard[] = floor.crit.map((c) => {
+  const critCards: DeckCard[] = f.crit.map((c) => {
     const full = c.have >= c.max;
     return {
       badge: c.code,
@@ -53,28 +63,28 @@ export function CritiqueModal({
       label="LLM · критерии ФИПИ"
       title={
         <span className="ct-title">
-          <ScanLine size={18} style={{ color: floor.hue }} /> Разбор: {floor.name}
+          <ScanLine size={18} style={{ color: f.hue }} /> Разбор: {f.name}
         </span>
       }
       maxWidth="46rem"
     >
       <div
         className="ct-sum"
-        dangerouslySetInnerHTML={{ __html: floor.sum || "" }}
+        dangerouslySetInnerHTML={{ __html: f.sum || "" }}
       />
 
       <CarouselDeck
         cards={cards}
-        colors={{ arrowHoverBackground: floor.hue }}
+        colors={{ arrowHoverBackground: f.hue }}
       />
 
       <button
         className="ct-apply"
         onClick={() => {
-          onApply(floor.id);
+          onApply(f.id);
           onClose();
         }}
-        style={{ ["--c" as string]: floor.hue }}
+        style={{ ["--c" as string]: f.hue }}
       >
         <Check size={16} />
         Учесть разбор и доработать
