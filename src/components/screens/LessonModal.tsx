@@ -48,7 +48,11 @@ export function LessonModal({
     setActiveCode(null);
 
     fetch(`/api/knowledge/floor?id=${encodeURIComponent(floor.id)}`)
-      .then((r) => r.json())
+      .then((r) => {
+        // без проверки r.ok 500 с JSON-телом маскировался под «материалы готовятся»
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((json: ApiResp) => {
         const subs = json.subtopics ?? [];
         setData(subs);
@@ -58,7 +62,14 @@ export function LessonModal({
       .finally(() => setLoading(false));
   }, [open, floor?.id]);
 
-  if (!floor) return null;
+  // Кэш последнего этажа: при закрытии ModalHost обнуляет floor, и мгновенный
+  // return null размонтировал бы Modal (обрыв exit-анимации + новый маунт на
+  // каждое открытие). С кэшем Modal живёт с open=false и закрывается плавно.
+  const lastFloorRef = React.useRef<Floor | null>(null);
+  if (floor) lastFloorRef.current = floor;
+  const f = floor ?? lastFloorRef.current;
+
+  if (!f) return null;
 
   const active = data?.find((s) => s.code === activeCode) ?? null;
   const hasContent = !loading && data && data.length > 0;
@@ -68,8 +79,8 @@ export function LessonModal({
     <Modal
       open={open}
       onClose={onClose}
-      label={`Детальный урок · ${floor.tag}`}
-      title={floor.name}
+      label={`Детальный урок · ${f.tag}`}
+      title={f.name}
       maxWidth="52rem"
     >
       {loading && (
@@ -87,7 +98,7 @@ export function LessonModal({
 
       {empty && (
         <div className="lm-empty">
-          <BookOpen size={18} style={{ color: floor.hue }} />
+          <BookOpen size={18} style={{ color: f.hue }} />
           <div>
             <b>Материалы этой темы готовятся.</b>
             <p>Задай вопрос репетитору — он объяснит суть и разберёт задание.</p>
@@ -105,7 +116,7 @@ export function LessonModal({
                   key={s.code}
                   onClick={() => setActiveCode(s.code)}
                   className={"lm-subtab" + (s.code === activeCode ? " on" : "")}
-                  style={{ ["--c" as string]: floor.hue }}
+                  style={{ ["--c" as string]: f.hue }}
                   title={s.title}
                 >
                   <span className="lm-subtab-code">{s.code}</span>
@@ -155,8 +166,8 @@ export function LessonModal({
 
       <button
         className="lm-train"
-        onClick={() => onTrain(floor.id)}
-        style={{ ["--c" as string]: floor.hue }}
+        onClick={() => onTrain(f.id)}
+        style={{ ["--c" as string]: f.hue }}
       >
         <Dumbbell size={16} />
         Тренировать тему
@@ -183,8 +194,18 @@ export function LessonModal({
           font-family: var(--mono); font-size: 11px;
           letter-spacing: 0.1em; text-transform: uppercase; color: rgb(var(--mid));
         }
-        .lm-subtabs-scroll { display: flex; flex-wrap: wrap; gap: 6px; }
+        /* мобайл: горизонтальная лента чипов (6 подтем = 6 строк съедали весь
+           первый экран урока); десктоп: перенос как раньше */
+        .lm-subtabs-scroll {
+          display: flex; flex-wrap: nowrap; gap: 6px;
+          overflow-x: auto; padding-bottom: 6px;
+          -webkit-overflow-scrolling: touch; scrollbar-width: thin;
+        }
+        @media (min-width: 768px) {
+          .lm-subtabs-scroll { flex-wrap: wrap; overflow-x: visible; padding-bottom: 0; }
+        }
         .lm-subtab {
+          flex: 0 0 auto;
           display: inline-flex; align-items: center; gap: 6px;
           max-width: 100%; min-height: 44px; padding: 8px 12px;
           border: 1px solid rgb(var(--line) / 0.4);
@@ -194,7 +215,9 @@ export function LessonModal({
         }
         .lm-subtab:hover { color: rgb(var(--hi)); border-color: rgb(var(--line)); }
         .lm-subtab.on {
-          color: rgb(var(--bg-0)); background: var(--c); border-color: var(--c);
+          /* фиксированные тёмные чернила: rgb(var(--bg-0)) в светлой теме
+             давал белёсый текст на цветной заливке (контраст ~2:1) */
+          color: #070a14; background: var(--c); border-color: var(--c);
         }
         .lm-subtab-code { font-family: var(--mono); font-size: 10px; opacity: 0.8; }
         .lm-subtab-title {
@@ -213,7 +236,7 @@ export function LessonModal({
           background: rgb(var(--glass-hi) / 0.06); color: rgb(var(--lo));
         }
         .lm-active-title {
-          flex: 1; min-width: 200px; margin: 0;
+          flex: 1; min-width: 200px; margin: 0; overflow-wrap: break-word;
           font-family: var(--serif); font-size: 16px; line-height: 1.3; color: rgb(var(--hi));
         }
         .lm-ask {
@@ -226,7 +249,9 @@ export function LessonModal({
         }
         .lm-ask:hover { background: rgb(var(--accent) / 0.14); }
 
-        .lm-materials { display: grid; gap: 12px; }
+        /* minmax(0,1fr): без него min-content длинного слова растягивал
+           карточки (867px в 390px-вьюпорте — весь урок уезжал за правый край) */
+        .lm-materials { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
         .lm-material {
           border: 1px solid rgb(var(--line) / 0.4);
           background: rgb(var(--glass-hi) / 0.02);
@@ -244,11 +269,12 @@ export function LessonModal({
         }
         .lm-material-title {
           margin: 0 0 8px; font-size: 14.5px; font-weight: 600;
-          color: rgb(var(--hi)); line-height: 1.35;
+          color: rgb(var(--hi)); line-height: 1.35; overflow-wrap: break-word;
         }
         .lm-material-body {
           margin: 0; font-size: 13.5px; line-height: 1.55;
           color: rgb(var(--mid)); white-space: pre-wrap;
+          overflow-wrap: anywhere; /* длинные слова/URL из БД не раздувают ширину */
         }
 
         .lm-train {
@@ -256,7 +282,8 @@ export function LessonModal({
           /* sticky-футер: CTA всегда виден, не нужно скроллить весь урок до низа */
           position: sticky; bottom: 0; z-index: 3;
           width: 100%; margin-top: 16px; min-height: 52px; padding: 14px;
-          border: none; background: var(--c); color: rgb(var(--bg-0));
+          /* тёмные чернила фиксированно — см. .lm-subtab.on */
+          border: none; background: var(--c); color: #070a14;
           font-weight: 700; font-size: 14px; border-radius: 14px;
           cursor: pointer; transition: filter 0.15s;
           box-shadow: 0 -16px 22px -10px rgb(var(--bg-1));
