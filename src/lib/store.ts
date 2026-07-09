@@ -79,6 +79,9 @@ interface AppState {
   /** Показ превью-тоста (не персистится: показом рулит Page). */
   nudgeVisible: boolean;
 
+  // ——— спотлайт-тур (не персистится: done-флаг живёт в lib/tour) ———
+  tourActive: boolean;
+
   subject: () => Subject;
   floorById: (id: string | null) => Subject["floors"][number] | undefined;
 
@@ -116,6 +119,8 @@ interface AppState {
   hydrateNudge: () => void;
   showNudge: () => void;
   hideNudge: () => void;
+
+  setTourActive: (v: boolean) => void;
 }
 
 const clone = (): Record<string, Subject> => JSON.parse(JSON.stringify(SUBJECTS));
@@ -227,6 +232,8 @@ export const useApp = create<AppState>((set, get) => ({
 
   tutorNudge: null, // реальное значение подтянется hydrateNudge() после маунта
   nudgeVisible: false,
+
+  tourActive: false,
 
   subject: () => get().data[get().subjectKey],
   floorById: (id) =>
@@ -480,6 +487,8 @@ export const useApp = create<AppState>((set, get) => ({
 
   showNudge: () => set({ nudgeVisible: true }),
   hideNudge: () => set({ nudgeVisible: false }),
+
+  setTourActive: (tourActive) => set({ tourActive }),
 }));
 
 function pluralWeeks(n: number): string {

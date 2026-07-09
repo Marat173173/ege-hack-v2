@@ -132,18 +132,21 @@ export function SpireScreen() {
     <div className="fixed inset-0 overflow-hidden bg-bg-0">
       {viewMode === "spire" ? (
         <>
-          <SpireScene
-            subject={subject}
-            subjectKey={subjectKey}
-            mode={mode}
-            theme={theme}
-            focusId={focusId}
-            selectedId={selectedId}
-            lightMode={lightMode}
-            reduceMotion={reduceMotion}
-            tier={tier}
-            onPick={handlePick}
-          />
+          {/* обёртка-якорь тура: сам Canvas внутри fixed inset-0, геометрия совпадает */}
+          <div data-tour="spire-canvas" className="fixed inset-0 z-0">
+            <SpireScene
+              subject={subject}
+              subjectKey={subjectKey}
+              mode={mode}
+              theme={theme}
+              focusId={focusId}
+              selectedId={selectedId}
+              lightMode={lightMode}
+              reduceMotion={reduceMotion}
+              tier={tier}
+              onPick={handlePick}
+            />
+          </div>
 
           <PixelBloom trigger={bloom} disabled={reduceMotion || lightMode} />
 
@@ -179,6 +182,7 @@ export function SpireScreen() {
       {isMobile && !focusId && (
         <button
           onClick={() => setSheet("progress")}
+          data-tour="readiness-chip"
           aria-label={`Готовность ${overallReadiness(subject.floors)} процентов — открыть прогресс`}
           className="liquid-glass focus-ring fixed z-[6] flex items-center gap-1.5 rounded-full px-2.5"
           style={{

@@ -122,6 +122,7 @@ export function TopBar() {
 
         {/* живой огонёк серии */}
         <motion.div
+          data-tour="topbar-streak"
           className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-line bg-panel px-2.5 py-2 backdrop-blur-md"
           title="Серия дней"
         >
