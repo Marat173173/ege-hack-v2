@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Send, Bot, Users, ShieldAlert, Sparkles, RotateCcw } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
+import { renderChatMarkdown } from "@/lib/chat-md";
 import type { MistakeItem } from "@/components/screens/ResultsScreen";
 
 type Tab = "ai" | "community";
@@ -267,8 +268,9 @@ export function ChatScreen() {
                 <div
                   className={
                     "ink-readable rounded-2xl px-3.5 py-2.5 " +
-                    // реплики ИИ-наставника — «от руки», крупнее для читаемости
-                    (isAi ? "font-hand text-[18px] leading-tight" : "text-[14px] leading-snug")
+                    // длинные разборы ИИ — обычным шрифтом (почерк нечитаем на
+                    // объёме); короткие реплики ученика — «от руки», живо
+                    (isAi ? "text-[14px] leading-relaxed" : "font-hand text-[18px] leading-tight")
                   }
                   style={{
                     background: mine
@@ -282,7 +284,9 @@ export function ChatScreen() {
                     borderBottomLeftRadius: !mine ? 6 : undefined,
                   }}
                 >
-                  {m.text}
+                  {/* ответы ИИ рендерим как маркдаун (жирный/списки/абзацы) —
+                      LLM отвечает разметкой, голые ** нечитаемы */}
+                  {isAi ? renderChatMarkdown(m.text) : m.text}
                   {m.source && (
                     <div className="mt-1 font-sans text-[11px] text-lo">Источник: {m.source}</div>
                   )}

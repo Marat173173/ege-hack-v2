@@ -4,6 +4,7 @@ import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Loader2, MessageCircle, Sparkles, X } from "lucide-react";
 import { useAnonAskCount } from "./useAnonAskCount";
+import { renderChatMarkdown } from "@/lib/chat-md";
 import { FIPI_RU } from "@/data/fipi-codifier-ru";
 
 type Msg = { id: string; role: "user" | "assistant"; content: string; loading?: boolean };
@@ -265,7 +266,7 @@ function Bubble({ msg }: { msg: Msg }) {
       <div
         className={`max-w-[85%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed sm:max-w-[75%] ${
           isUser
-            ? "bg-[rgb(var(--accent))] text-[rgb(var(--bg-0))]"
+            ? "bg-[rgb(var(--accent))] text-[#070a14]"
             : "border border-white/10 bg-[rgb(var(--bg-1))] text-[rgb(var(--hi))]"
         }`}
       >
@@ -274,8 +275,11 @@ function Bubble({ msg }: { msg: Msg }) {
             <Loader2 className="h-4 w-4 animate-spin" />
             <span className="text-sm">Думаю…</span>
           </div>
-        ) : (
+        ) : isUser ? (
           <div className="whitespace-pre-wrap">{msg.content}</div>
+        ) : (
+          // маркдаун-рендер ответа наставника: **жирный**, списки, абзацы
+          <div>{renderChatMarkdown(msg.content)}</div>
         )}
       </div>
     </motion.div>
