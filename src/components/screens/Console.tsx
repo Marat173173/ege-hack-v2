@@ -39,6 +39,7 @@ export function Console() {
 
   return (
     <motion.div
+      data-tour="console"
       initial={{ y: 40, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ delay: 0.2, type: "spring", stiffness: 200, damping: 26 }}

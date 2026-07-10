@@ -164,6 +164,7 @@ export function BottomTabBar() {
               return (
                 <button
                   key={t.key}
+                  data-tour={t.key === "chat" ? "tabbar-chat" : undefined}
                   onClick={t.go}
                   tabIndex={collapsed ? -1 : 0}
                   aria-current={on ? "page" : undefined}

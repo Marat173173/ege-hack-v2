@@ -296,6 +296,7 @@ export function Inspector() {
         ) : (
           /* ——— ДЕСКТОП/ПЛАНШЕТ: правый рейл ——— */
           <motion.div
+            data-tour="inspector"
             key={mode === "parent" ? "parent-d" : "d-" + selectedId}
             initial={{ x: 60, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}

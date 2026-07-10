@@ -157,6 +157,7 @@ export function SpireRail() {
   return (
     <div
       ref={railRef}
+      data-tour="rail"
       role="slider"
       aria-label={`Карта башни: ${floors.length} тем; тап — переход к этажу, свайп — панорама, удержание — зум`}
       aria-valuemin={1}

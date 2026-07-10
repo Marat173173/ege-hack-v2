@@ -30,6 +30,7 @@ export function TutorFAB({
 
   return (
     <motion.a
+      data-tour="tutor-fab"
       href={`/tutor?topic=${encodeURIComponent(topic)}&subject=${encodeURIComponent(subject)}`}
       initial={{ opacity: 0, scale: 0.7, y: 12 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}

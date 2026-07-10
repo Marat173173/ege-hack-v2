@@ -3,7 +3,7 @@
 import * as React from "react";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft, Flame, Trophy, Target, CalendarClock, Bell, Settings2,
+  ArrowLeft, Flame, Trophy, Target, CalendarClock, Bell, Settings2, GraduationCap,
   Volume2, Sun, Moon, Gauge, Pencil, Check, TrendingUp, Minus, Plus, type LucideIcon,
 } from "lucide-react";
 import { useApp } from "@/lib/store";
@@ -63,6 +63,9 @@ export function ProfileScreen() {
   const toggleTheme = useApp((s) => s.toggleTheme);
   const lightMode = useApp((s) => s.lightMode);
   const toggleLight = useApp((s) => s.toggleLight);
+  const setTourActive = useApp((s) => s.setTourActive);
+  const closeInspector = useApp((s) => s.closeInspector);
+  const setSheet = useApp((s) => s.setSheet);
 
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState<Profile>(profile);
@@ -443,12 +446,29 @@ export function ProfileScreen() {
             </span>
             <Toggle checked={profile.sound} onChange={(v) => updateProfile({ sound: v })} label="Звуки" />
           </div>
-          <div className="flex items-center justify-between gap-3 py-3">
+          <div className="flex items-center justify-between gap-3 border-b border-line py-3">
             <span className="flex items-center gap-2.5 text-[13px] text-hi">
               <Gauge size={15} className="text-mid" /> Лёгкий режим (экономия батареи)
             </span>
             <Toggle checked={lightMode} onChange={() => toggleLight()} label="Лёгкий режим" />
           </div>
+          {/* повтор spotlight-тура: уводим на Шпиль и включаем оверлей.
+              Инспектор/зум и шиты закрываем заранее — иначе прожектор
+              светит в перекрытый ими экран */}
+          <button
+            onClick={() => {
+              closeInspector();
+              setSheet(null);
+              setTourActive(true);
+              setScreen("spire");
+            }}
+            className="focus-ring flex min-h-[44px] w-full items-center justify-between gap-3 py-3 text-left transition-colors hover:text-accent"
+          >
+            <span className="flex items-center gap-2.5 text-[13px] text-hi">
+              <GraduationCap size={15} className="text-mid" /> Показать обучение заново
+            </span>
+            <span className="font-mono text-[11px] text-accent">тур →</span>
+          </button>
         </Section>
 
         {days != null && (

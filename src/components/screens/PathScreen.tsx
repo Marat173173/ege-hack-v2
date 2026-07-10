@@ -89,6 +89,12 @@ export function PathScreen() {
     return id;
   }, [visible, floors]);
 
+  // первый закрытый узел из видимых — якорь шага тура про гейтинг
+  const firstLockedId = React.useMemo(
+    () => visible.find((f) => isLocked(floors, floors.indexOf(f)))?.id ?? null,
+    [visible, floors]
+  );
+
   // прогресс по разделам считаем по ПОЛНОМУ кодификатору (честные счётчики)
   const sectionStats = React.useMemo(() => {
     const m = new Map<string, { total: number; solid: number; open: number }>();
@@ -249,6 +255,7 @@ export function PathScreen() {
                 return (
                   <div
                     key={f.id}
+                    data-tour={isCurrent ? "path-current" : f.id === firstLockedId ? "path-locked" : undefined}
                     className="absolute -translate-x-1/2"
                     style={{ left: `${cx}%`, top }}
                   >

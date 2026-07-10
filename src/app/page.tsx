@@ -18,6 +18,8 @@ import { DiagnosticScreen } from "@/components/screens/DiagnosticScreen";
 import { BottomTabBar } from "@/components/screens/BottomTabBar";
 import { CelebrationOverlay } from "@/components/screens/CelebrationOverlay";
 import { TutorNudgeToast } from "@/components/screens/TutorNudgeToast";
+import { TourOverlay } from "@/components/tour/TourOverlay";
+import { tourDone } from "@/lib/tour";
 
 /** Экраны, где показываем постоянный нижний таб-бар (главные разделы).
  *  На чате бар есть, но авто-спрятан влево (стрелка возвращает).
@@ -73,6 +75,9 @@ export default function Page() {
   const hideNudge = useApp((s) => s.hideNudge);
   const nudgeVisible = useApp((s) => s.nudgeVisible);
   const nudgeStatus = useApp((s) => s.tutorNudge?.status);
+  const tourActive = useApp((s) => s.tourActive);
+  const setTourActive = useApp((s) => s.setTourActive);
+  const celebrationCount = useApp((s) => s.celebrationQueue.length);
   // не чаще раза в 90с — иначе превью превращается в спам
   const nudgeShownAt = React.useRef(0);
 
@@ -85,7 +90,7 @@ export default function Page() {
   // триггер показа: на Шпиле с неотвеченным предложением — превью через 5с.
   // Покрывает и «после итогов» (finish → spire), и «при каждом заходе».
   React.useEffect(() => {
-    if (screen !== "spire" || nudgeStatus !== "pending") return;
+    if (screen !== "spire" || nudgeStatus !== "pending" || tourActive) return;
     // не чаще раза в 90с, но по истечении окна тост показываем и на ТЕКУЩЕМ
     // визите (раньше при двух быстрых сессиях подряд показ терялся до
     // следующей смены экрана)
@@ -95,7 +100,16 @@ export default function Page() {
       showNudge();
     }, wait);
     return () => clearTimeout(t);
-  }, [screen, nudgeStatus, showNudge]);
+  }, [screen, nudgeStatus, showNudge, tourActive]);
+
+  // автозапуск тура при первом заходе на Шпиль: 1200мс — шторка-скелетон 3D
+  // успевает подняться, прожектору есть на что указывать. Празднования (z-70)
+  // легли бы ПОД тур (z-80) — ждём, пока юзер дренирует очередь
+  React.useEffect(() => {
+    if (screen !== "spire" || celebrationCount > 0 || tourDone() || tourActive) return;
+    const t = setTimeout(() => setTourActive(true), 1200);
+    return () => clearTimeout(t);
+  }, [screen, tourActive, setTourActive, celebrationCount]);
 
   // guard: на фокус-экранах уже показанное превью прячем (статус остаётся pending)
   React.useEffect(() => {
@@ -171,6 +185,9 @@ export default function Page() {
         {/* превью «репетитор пишет» — глобально, поверх празднований;
             сам рендерится только при nudgeVisible && status === "pending" */}
         <TutorNudgeToast />
+
+        {/* spotlight-тур по сервису (первый заход / повтор из профиля) */}
+        <TourOverlay />
       </ToastProvider>
     </MotionConfig>
   );
