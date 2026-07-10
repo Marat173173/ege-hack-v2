@@ -7,7 +7,7 @@ import { LiquidGlass } from "@/components/ui/liquid-glass";
 import { useApp } from "@/lib/store";
 import { computeScore, bandColor } from "@/lib/score-model";
 import { floorState } from "@/lib/floor-state";
-import { overallReadiness } from "@/lib/floor-build";
+import { overallReadiness, lockMap } from "@/lib/floor-build";
 
 export function Console() {
   const subject = useApp((s) => s.subject());
@@ -19,8 +19,10 @@ export function Console() {
   const col = bandColor(sc.half);
   const ready = overallReadiness(subject.floors); // высота Шпиля = % готовности к ЕГЭ
 
+  // закрытые темы не предлагаем укреплять — они недоступны
+  const locks = lockMap(subject.floors);
   const weak = subject.floors
-    .slice()
+    .filter((_, i) => !locks[i])
     .sort((a, b) => a.prog * 0.5 + a.stab * 0.5 - (b.prog * 0.5 + b.stab * 0.5))
     .filter((f) => floorState(f) !== "solid")
     .slice(0, 3);

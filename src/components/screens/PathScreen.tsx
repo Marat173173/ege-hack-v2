@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Lock, Check, Star, BookOpen, Crown, MessageCircle, Sparkles, ChevronDown } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { floorState, STATE_META } from "@/lib/floor-state";
-import { isLocked, unlockGap, floorReadiness, visibleFloors } from "@/lib/floor-build";
+import { isLocked, lockReason, floorReadiness, visibleFloors } from "@/lib/floor-build";
 import { useToast } from "./Toast";
 import type { Floor } from "@/data/types";
 
@@ -119,9 +119,7 @@ export function PathScreen() {
 
   function tap(f: Floor, i: number) {
     if (isLocked(floors, i)) {
-      toast(
-        `🔒 «${f.name}» закрыт. Укрепи предыдущие темы ещё на <b>~${unlockGap(floors, i)}%</b>.`
-      );
+      toast(`🔒 «${f.name}»: ${lockReason(floors, i)}`);
       return;
     }
     if (isFipiCode(f.id)) openSolve(f.id);

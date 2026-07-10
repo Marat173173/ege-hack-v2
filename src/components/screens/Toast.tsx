@@ -33,7 +33,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 20, opacity: 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 22 }}
-            style={{ x: "-50%" }} // framer-y/scale клобберит tailwind-translate
+            // position инлайном: .liquid-glass{position:relative} в globals.css
+            // объявлен ПОСЛЕ tailwind-утилит и перебивал .fixed — тост улетал
+            // за верх экрана (top:-80) и был невидим вообще везде
+            style={{ x: "-50%", position: "fixed" }}
             className="liquid-glass pointer-events-none fixed bottom-20 left-1/2 z-[70] flex max-w-[88vw] items-center gap-2.5 rounded-xl px-4 py-2.5"
           >
             <Sparkles size={15} className="shrink-0 text-accent" />

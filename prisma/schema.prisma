@@ -209,3 +209,26 @@ model ChatMessage {
 
   @@index([sessionId])
 }
+
+// ————————————————————————————————————————————————
+// 8. Результаты сессий (тренировки/симуляции)
+// ————————————————————————————————————————————————
+
+model SessionResult {
+  id       String  @id @default(cuid())
+  anonId   String  // анонимный ID из localStorage/cookie (см. src/lib/anon-id.ts)
+  userId   String? // на будущее: мерж с User после регистрации (без relation намеренно)
+  floorId  String  // этаж/тема ("rus-orf", "3.7.6", …)
+  subject  String  // "russian", "math", …
+  kind     String  // "train" | "sim" | "diagnostic"
+  correct  Int
+  total    Int
+  seconds  Int
+  xp       Int
+  mistakes Json    @default("[]") // MistakeItem[] (см. ResultsScreen.tsx)
+
+  createdAt DateTime @default(now())
+
+  @@index([anonId, createdAt])
+  @@index([anonId, floorId])
+}

@@ -4,8 +4,9 @@ import * as React from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, Check, X, Sparkles, Timer, Send, Flame, Zap } from "lucide-react";
 import { useApp } from "@/lib/store";
+import { getAnonId } from "@/lib/anon-id";
 import { XP, comboMultiplier } from "@/lib/gamification";
-import { computeScore } from "@/lib/score-model";
+import { computeScore, type ScoreResult } from "@/lib/score-model";
 import { playCorrect, playWrong, playCombo } from "@/lib/sound";
 import { buzz, HAPTIC } from "@/lib/haptics";
 import { useToast } from "./Toast";
@@ -29,6 +30,7 @@ export function Solve() {
   const bump = useApp((s) => s.bump);
   const gainXp = useApp((s) => s.gainXp);
   const resetCombo = useApp((s) => s.resetCombo);
+  const offerNudge = useApp((s) => s.offerNudge);
   const combo = useApp((s) => s.game.combo);
   const lightMode = useApp((s) => s.lightMode);
   const toast = useToast();
@@ -48,10 +50,24 @@ export function Solve() {
   const gainSeq = React.useRef(0);
   const flashTimer = React.useRef<ReturnType<typeof setTimeout>>();
 
+  // Снапшот «было/стало» для итогов: считается ОДИН раз при завершении сессии.
+  // Без заморозки bump() из finish() менял subject, Solve ре-рендерился во время
+  // exit-анимации экрана (AnimatePresence mode="wait" в page.tsx) — и цифры
+  // прогноза прыгали на глазах (зачёт накладывался второй раз).
+  const resultsSnap = React.useRef<{
+    before: ScoreResult | null;
+    projected: ScoreResult | null;
+  } | null>(null);
+  const finishedRef = React.useRef(false); // guard от двойного finish()
+
+  // сессия завершена → экран итогов: таймер замирает, снапшот заморожен
+  const sessionOver = tasksList.length > 0 && idx >= tasksList.length;
+
   React.useEffect(() => {
+    if (sessionOver) return; // на итогах время не тикает (и не дёргает ре-рендеры)
     const t = setInterval(() => setSeconds((s) => s + 1), 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [sessionOver]);
 
   // Загружаем задания по этажу
   React.useEffect(() => {
@@ -63,6 +79,9 @@ export function Solve() {
     setScore(0);
     setSessionXp(0);
     setMistakes([]);
+    setSeconds(0); // время прошлой сессии не протекает в новую
+    resultsSnap.current = null; // новая сессия — новый снапшот прогноза
+    finishedRef.current = false; // и новый зачёт
 
     fetch(`/api/tasks/floor?id=${encodeURIComponent(floor.id)}&limit=8`)
       .then((r) => r.json())
@@ -146,11 +165,48 @@ export function Solve() {
     return { gained, dStab: Math.round(gained * 0.6) };
   }
   function finish() {
+    // идемпотентность: двойной тап по «Дальше» в окно exit-анимации давал
+    // двойной bump/XP, а теперь дал бы и дубль SessionResult в БД
+    if (finishedRef.current) return;
+    finishedRef.current = true;
     if (floor) {
       const { gained, dStab } = sessionGain();
       bump(floor.id, gained, dStab);
       gainXp(XP.trainComplete);
       toast(`Тренировка засчитана: <b>+${gained}</b> к освоению «${floor.name}».`);
+      // fire-and-forget: сессия уходит в БД, UX ответа не ждёт
+      fetch("/api/session/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          anonId: getAnonId(),
+          floorId: floor.id,
+          subject: subject.key,
+          kind: "train",
+          correct: score,
+          total: tasksList.length,
+          seconds,
+          xp: sessionXp,
+          mistakes,
+        }),
+        // keepalive: onAskTutor сразу делает window.location.href на /tutor —
+        // без него навигация обрывала fetch и сессия молча терялась
+        keepalive: true,
+      }).catch(() => {});
+      // были ошибки → репетитор «напишет» с предложением разбора.
+      // offerNudge синхронно пишет localStorage, поэтому предложение переживёт
+      // и window.location.href-переход на /tutor из onAskTutor.
+      if (mistakes.length > 0) {
+        offerNudge({
+          kind: "review",
+          floorId: floor.id,
+          floorName: floor.name,
+          subjectKey: subject.key,
+          correct: score,
+          total: tasksList.length,
+          mistakes,
+        });
+      }
     }
     resetCombo();
     setScreen("spire");
@@ -164,22 +220,28 @@ export function Solve() {
     // Прогноз ЕГЭ с учётом ЭТОЙ сессии: bump применится только в finish() (при
     // выходе с итогов), поэтому зачёт проецируем на копию этажей — иначе
     // диапазон показал бы состояние «до тренировки».
-    const { gained, dStab } = sessionGain();
-    const projected =
-      subject && floor
-        ? computeScore({
-            ...subject,
-            floors: subject.floors.map((f) =>
-              f.id === floor.id
-                ? {
-                    ...f,
-                    prog: Math.min(100, f.prog + gained),
-                    stab: Math.min(100, f.stab + dStab),
-                  }
-                : f
-            ),
-          })
-        : null;
+    if (!resultsSnap.current) {
+      const { gained, dStab } = sessionGain();
+      resultsSnap.current = {
+        before: subject && floor ? computeScore(subject) : null,
+        projected:
+          subject && floor
+            ? computeScore({
+                ...subject,
+                floors: subject.floors.map((f) =>
+                  f.id === floor.id
+                    ? {
+                        ...f,
+                        prog: Math.min(100, f.prog + gained),
+                        stab: Math.min(100, f.stab + dStab),
+                      }
+                    : f
+                ),
+              })
+            : null,
+      };
+    }
+    const { before, projected } = resultsSnap.current;
     return (
       <ResultsScreen
         floorName={floor?.name ?? "Тренировка"}
@@ -189,6 +251,7 @@ export function Solve() {
         xpGained={sessionXp}
         mistakes={mistakes}
         scoreRange={projected ? { low: projected.min, high: projected.max } : undefined}
+        scoreRangeBefore={before ? { low: before.min, high: before.max } : undefined}
         onNext={finish}
         // «к Шпилю» ТОЖЕ фиксирует результат (finish: bump+XP+toast+resetCombo),
         // раньше молча терял сессию
