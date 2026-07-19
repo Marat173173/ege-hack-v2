@@ -3,20 +3,20 @@
 /**
  * Синхронизация Zustand-store с бэкендом.
  *
- * Что делает:
- *  1. При появлении сессии (user залогинен) — тянет свежие данные
- *     GET /api/user/{profile,game,progress} → вливает в store.
- *  2. Слушает изменения store: XP/streak/combo, поля профиля и
- *     прогресс этажей текущего предмета. Изменения отправляет с
- *     задержкой 2 сек (createDebouncedPush).
- *  3. При выходе из аккаунта — просто перестаёт что-либо делать.
- *     Локальные данные не трогает.
+ * Store устроен вложенно:
+ *   state.game    (GameState — xp, streak, dailyXp…)
+ *   state.profile (Profile   — name, avatarEmoji, targetScore…)
+ *   state.data    (Record<subject, Subject>) → floors[i].{prog, stab}
  *
- * Устойчиво к отсутствующим полям: если store коллеги переименовал
- * поле — просто пропустим его в push/apply без ошибки.
+ * Мутации иммутабельны (bump, calibrate, gainXp, updateProfile создают
+ * новые объекты) — subscribe надёжно ловит изменения по ссылке.
  *
- * Не пишем во время «первичной заливки» (флаг isApplyingFromServer),
- * чтобы не отправить обратно то, что только что получили.
+ * Применение серверных данных:
+ *   - profile через экшен updateProfile(patch) (сохраняет и в localStorage)
+ *   - game через прямой setState (merge поверх текущего)
+ *   - progress через экшен calibrate(id, prog, stab) на каждый этаж
+ *
+ * Флаг isApplyingFromServer защищает от эха «серверное значение → push».
  */
 
 import { useEffect, useRef } from "react";
@@ -40,7 +40,7 @@ const PROFILE_KEYS = [
   "notify",
 ] as const;
 
-// ─── Push-очереди (модульные, живут между рендерами) ────────────
+// ─── Push-очереди ─────────────────────────────────────────────
 
 const pushGame = createDebouncedPush<Record<string, unknown>>({
   url: "/api/user/game",
@@ -57,18 +57,16 @@ const pushProgress = createDebouncedPush<Array<{ topicId: string; prog: number; 
   method: "POST",
 });
 
-// ─── Guard: не пушим обратно то, что только что получили ───────
-
 let isApplyingFromServer = false;
 
-// ─── Основной хук ───────────────────────────────────────────────
+// ─── Хук ──────────────────────────────────────────────────────
 
 export function useProfileSync() {
   const { data: session, status } = useSession();
   const userId = (session?.user as { id?: string } | undefined)?.id;
   const loadedForUserRef = useRef<string | null>(null);
 
-  // 1. При появлении сессии — загружаем данные с сервера
+  // 1. Загрузка с сервера при появлении сессии
   useEffect(() => {
     if (status !== "authenticated" || !userId) return;
     if (loadedForUserRef.current === userId) return;
@@ -82,15 +80,12 @@ export function useProfileSync() {
           fetch("/api/user/game", { credentials: "same-origin" }).then(safeJson),
           fetch("/api/user/progress", { credentials: "same-origin" }).then(safeJson),
         ]);
-
         applyProfile(profileR);
         applyGame(gameR);
         applyProgress(progressR);
       } catch (err) {
         console.warn("[sync] initial load failed:", err);
       } finally {
-        // Небольшая задержка, чтобы React-обновления store успели
-        // «просочиться» через subscribe до снятия guard
         setTimeout(() => {
           isApplyingFromServer = false;
         }, 250);
@@ -98,38 +93,36 @@ export function useProfileSync() {
     })();
   }, [userId, status]);
 
-  // 2. Автосейв изменений в БД (debounced)
+  // 2. Слежение за изменениями store → отправка на сервер
   useEffect(() => {
     if (status !== "authenticated") return;
 
-    let prevGame = pickKeys(useApp.getState(), GAME_KEYS);
-    let prevProfile = pickKeys(useApp.getState(), PROFILE_KEYS);
-    let prevProgress = extractProgress(useApp.getState());
+    const initial = useApp.getState();
+    let prevGame = pickKeys(getSlice(initial, "game"), GAME_KEYS);
+    let prevProfile = pickKeys(getSlice(initial, "profile"), PROFILE_KEYS);
+    let prevProgress = extractProgress(initial);
 
     const unsubscribe = useApp.subscribe((state) => {
+      // Не пушим, пока идёт первичная заливка с сервера
       if (isApplyingFromServer) {
-        // обновим срезы, чтобы не отправить их как «изменения»
-        prevGame = pickKeys(state, GAME_KEYS);
-        prevProfile = pickKeys(state, PROFILE_KEYS);
+        prevGame = pickKeys(getSlice(state, "game"), GAME_KEYS);
+        prevProfile = pickKeys(getSlice(state, "profile"), PROFILE_KEYS);
         prevProgress = extractProgress(state);
         return;
       }
 
-      // Game
-      const currGame = pickKeys(state, GAME_KEYS);
+      const currGame = pickKeys(getSlice(state, "game"), GAME_KEYS);
       if (!shallowEqual(currGame, prevGame)) {
         prevGame = currGame;
         pushGame(currGame);
       }
 
-      // Profile
-      const currProfile = pickKeys(state, PROFILE_KEYS);
+      const currProfile = pickKeys(getSlice(state, "profile"), PROFILE_KEYS);
       if (!shallowEqual(currProfile, prevProfile)) {
         prevProfile = currProfile;
         pushProfile(currProfile);
       }
 
-      // Progress по этажам
       const currProgress = extractProgress(state);
       const changed = diffProgress(prevProgress, currProgress);
       if (changed.length > 0) {
@@ -141,8 +134,7 @@ export function useProfileSync() {
     return unsubscribe;
   }, [status]);
 
-  // 3. При выходе — сбрасываем маркер, чтобы при следующем входе
-  //    (возможно, другим юзером) заново загрузились его данные.
+  // 3. При выходе — сбрасываем маркер (чтобы новый юзер загрузил свои данные)
   useEffect(() => {
     if (status === "unauthenticated" && loadedForUserRef.current) {
       loadedForUserRef.current = null;
@@ -150,7 +142,7 @@ export function useProfileSync() {
   }, [status]);
 }
 
-// ─── Помощники ──────────────────────────────────────────────────
+// ─── Помощники ───────────────────────────────────────────────
 
 async function safeJson(res: Response): Promise<unknown> {
   if (!res.ok) return null;
@@ -161,39 +153,46 @@ async function safeJson(res: Response): Promise<unknown> {
   }
 }
 
-/**
- * Достаёт указанные ключи из произвольного объекта.
- * Принимает `unknown` — работает с любым store, даже если у него нет
- * index signature. Внутри аккуратно приводим к Record через проверку.
- */
+/** Достаёт значение по ключу из произвольного объекта. */
+function getSlice(state: unknown, key: string): unknown {
+  if (state && typeof state === "object") return (state as Record<string, unknown>)[key];
+  return null;
+}
+
+/** Плоский срез: только указанные ключи из объекта. */
 function pickKeys(obj: unknown, keys: readonly string[]): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (obj && typeof obj === "object") {
-    const source = obj as Record<string, unknown>;
+    const src = obj as Record<string, unknown>;
     for (const k of keys) {
-      if (k in source && source[k] !== undefined) out[k] = source[k];
+      if (k in src && src[k] !== undefined) out[k] = src[k];
     }
   }
   return out;
 }
 
 function shallowEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
-  const aKeys = Object.keys(a);
-  const bKeys = Object.keys(b);
-  if (aKeys.length !== bKeys.length) return false;
-  return aKeys.every((k) => a[k] === b[k]);
+  const ak = Object.keys(a);
+  const bk = Object.keys(b);
+  if (ak.length !== bk.length) return false;
+  return ak.every((k) => a[k] === b[k]);
 }
 
-/** Достаёт map {floorId → {prog, stab}} из текущего subject. */
+/** Собираем map {floorId → {prog, stab}} со всех предметов. */
 function extractProgress(state: unknown): Record<string, { prog: number; stab: number }> {
   const out: Record<string, { prog: number; stab: number }> = {};
   try {
-    const s = state as { subject?: () => { floors?: Array<{ id?: string; prog?: number; stab?: number }> } };
-    const subj = typeof s.subject === "function" ? s.subject() : null;
-    const floors = subj?.floors;
-    if (Array.isArray(floors)) {
-      for (const f of floors) {
-        if (f?.id) out[f.id] = { prog: Number(f.prog ?? 0), stab: Number(f.stab ?? 0) };
+    const s = state as {
+      data?: Record<string, { floors?: Array<{ id?: string; prog?: number; stab?: number }> }>;
+    };
+    if (s.data) {
+      for (const subjectKey in s.data) {
+        const subj = s.data[subjectKey];
+        if (subj?.floors) {
+          for (const f of subj.floors) {
+            if (f?.id) out[f.id] = { prog: Number(f.prog ?? 0), stab: Number(f.stab ?? 0) };
+          }
+        }
       }
     }
   } catch {
@@ -217,45 +216,47 @@ function diffProgress(
   return changed;
 }
 
-// ─── Применение полученных данных ───────────────────────────────
+// ─── Применение серверных данных ─────────────────────────────
 
 function applyProfile(profile: unknown) {
   const patch = pickKeys(profile, PROFILE_KEYS);
   if (Object.keys(patch).length === 0) return;
-  useApp.setState((s) => ({ ...s, ...patch }));
+  try {
+    const st = useApp.getState() as { updateProfile?: (patch: unknown) => void };
+    if (typeof st.updateProfile === "function") {
+      st.updateProfile(patch);
+      return;
+    }
+  } catch {
+    /* fallback ниже */
+  }
+  useApp.setState((s: unknown) => {
+    const st = s as { profile?: Record<string, unknown> };
+    return { profile: { ...(st.profile ?? {}), ...patch } } as never;
+  });
 }
 
 function applyGame(game: unknown) {
   const patch = pickKeys(game, GAME_KEYS);
   if (Object.keys(patch).length === 0) return;
-  useApp.setState((s) => ({ ...s, ...patch }));
+  useApp.setState((s: unknown) => {
+    const st = s as { game?: Record<string, unknown> };
+    return { game: { ...(st.game ?? {}), ...patch } } as never;
+  });
 }
 
 function applyProgress(rows: unknown) {
   if (!Array.isArray(rows) || rows.length === 0) return;
   try {
-    const byId = new Map<string, { prog: number; stab: number }>();
+    const st = useApp.getState() as {
+      calibrate?: (id: string, prog: number, stab: number) => void;
+    };
+    if (typeof st.calibrate !== "function") return;
     for (const r of rows as Array<{ topicId?: string; prog?: number; stab?: number }>) {
-      if (r?.topicId) byId.set(r.topicId, { prog: Number(r.prog ?? 0), stab: Number(r.stab ?? 0) });
-    }
-
-    // Обновляем прогресс на текущем предмете, сохраняя порядок этажей
-    useApp.setState((state) => {
-      const s = state as {
-        subject?: () => { floors?: Array<{ id?: string; prog?: number; stab?: number }> };
-      };
-      const subject = typeof s.subject === "function" ? s.subject() : null;
-      if (!subject?.floors) return state;
-      // мутируем внутри массива — Zustand увидит новый ref через spread top-level
-      for (const f of subject.floors) {
-        if (f?.id && byId.has(f.id)) {
-          const row = byId.get(f.id)!;
-          f.prog = row.prog;
-          f.stab = row.stab;
-        }
+      if (r?.topicId) {
+        st.calibrate(r.topicId, Number(r.prog ?? 0), Number(r.stab ?? 0));
       }
-      return { ...state };
-    });
+    }
   } catch (err) {
     console.warn("[sync] applyProgress failed:", err);
   }
