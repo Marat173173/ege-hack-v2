@@ -161,10 +161,18 @@ async function safeJson(res: Response): Promise<unknown> {
   }
 }
 
-function pickKeys<T extends Record<string, unknown>>(obj: T, keys: readonly string[]): Record<string, unknown> {
+/**
+ * Достаёт указанные ключи из произвольного объекта.
+ * Принимает `unknown` — работает с любым store, даже если у него нет
+ * index signature. Внутри аккуратно приводим к Record через проверку.
+ */
+function pickKeys(obj: unknown, keys: readonly string[]): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const k of keys) {
-    if (obj && k in obj && obj[k] !== undefined) out[k] = obj[k];
+  if (obj && typeof obj === "object") {
+    const source = obj as Record<string, unknown>;
+    for (const k of keys) {
+      if (k in source && source[k] !== undefined) out[k] = source[k];
+    }
   }
   return out;
 }
@@ -212,15 +220,13 @@ function diffProgress(
 // ─── Применение полученных данных ───────────────────────────────
 
 function applyProfile(profile: unknown) {
-  if (!profile || typeof profile !== "object") return;
-  const patch = pickKeys(profile as Record<string, unknown>, PROFILE_KEYS);
+  const patch = pickKeys(profile, PROFILE_KEYS);
   if (Object.keys(patch).length === 0) return;
   useApp.setState((s) => ({ ...s, ...patch }));
 }
 
 function applyGame(game: unknown) {
-  if (!game || typeof game !== "object") return;
-  const patch = pickKeys(game as Record<string, unknown>, GAME_KEYS);
+  const patch = pickKeys(game, GAME_KEYS);
   if (Object.keys(patch).length === 0) return;
   useApp.setState((s) => ({ ...s, ...patch }));
 }
