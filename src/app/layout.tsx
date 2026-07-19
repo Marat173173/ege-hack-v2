@@ -3,6 +3,7 @@ import { fontVars } from "./fonts";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { AuthButton } from "@/components/auth/AuthButton";
+import { SyncBridge } from "@/components/auth/SyncBridge";
 
 export const metadata: Metadata = {
   title: "ЕГЭ-ХАК · Взломай экзамен",
@@ -29,6 +30,9 @@ export default function RootLayout({
     <html lang="ru" data-theme="dark" className={fontVars} suppressHydrationWarning>
       <body>
         <AuthProvider>
+          {/* Прозрачный мост синхронизации store <-> БД (только для авторизованных) */}
+          <SyncBridge />
+
           {/* кнопка ИИ-репетитора теперь контекстная — её рендерит Inspector
               над шитом открытой темы (только Шпиль/Тропа + открытый модуль) */}
           {children}
