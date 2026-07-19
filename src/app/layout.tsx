@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { fontVars } from "./fonts";
 import "./globals.css";
+import { AuthProvider } from "@/components/auth/AuthProvider";
+import { AuthButton } from "@/components/auth/AuthButton";
 
 export const metadata: Metadata = {
   title: "ЕГЭ-ХАК · Взломай экзамен",
@@ -26,9 +28,21 @@ export default function RootLayout({
   return (
     <html lang="ru" data-theme="dark" className={fontVars} suppressHydrationWarning>
       <body>
-        {/* кнопка ИИ-репетитора теперь контекстная — её рендерит Inspector
-            над шитом открытой темы (только Шпиль/Тропа + открытый модуль) */}
-        {children}
+        <AuthProvider>
+          {/* кнопка ИИ-репетитора теперь контекстная — её рендерит Inspector
+              над шитом открытой темы (только Шпиль/Тропа + открытый модуль) */}
+          {children}
+
+          {/* Плавающая кнопка входа/аккаунта — правый верхний угол */}
+          <div
+            className="pointer-events-none fixed right-3 z-40 sm:right-4"
+            style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
+          >
+            <div className="pointer-events-auto">
+              <AuthButton />
+            </div>
+          </div>
+        </AuthProvider>
       </body>
     </html>
   );
