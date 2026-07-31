@@ -2,10 +2,13 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
+import { useSession, signOut } from "next-auth/react";
 import {
   ArrowLeft, Flame, Trophy, Target, CalendarClock, Bell, Settings2, GraduationCap,
-  Volume2, Sun, Moon, Gauge, Pencil, Check, TrendingUp, Minus, Plus, type LucideIcon,
+  Volume2, Sun, Moon, Gauge, Pencil, Check, TrendingUp, Minus, Plus,
+  UserCircle2, LogIn, LogOut, CloudOff, Cloud, Users, type LucideIcon,
 } from "lucide-react";
+import { AuthModal } from "@/components/auth/AuthModal";
 import { useApp } from "@/lib/store";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
 import { XpRing } from "@/components/ui/xp-ring";
@@ -66,6 +69,8 @@ export function ProfileScreen() {
   const setTourActive = useApp((s) => s.setTourActive);
   const closeInspector = useApp((s) => s.closeInspector);
   const setSheet = useApp((s) => s.setSheet);
+  const mode = useApp((s) => s.mode);
+  const setMode = useApp((s) => s.setMode);
 
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState<Profile>(profile);
@@ -100,6 +105,19 @@ export function ProfileScreen() {
 
   const lvl = levelProgress(game.xp);
   const days = daysToExam(profile.examDate);
+
+  // Аккаунт: единая точка входа и регистрации на всё приложение.
+  // Сюда ведут аватар в TopBar (десктоп) и вкладка «Профиль» (мобилка),
+  // сюда же отправляет предложение зарегистрироваться из чата с репетитором.
+  const { data: session, status } = useSession();
+  const account = session?.user;
+  const [authOpen, setAuthOpen] = React.useState(false);
+  const [authMode, setAuthMode] = React.useState<"signin" | "signup">("signup");
+
+  function openAuth(mode: "signin" | "signup") {
+    setAuthMode(mode);
+    setAuthOpen(true);
+  }
 
   function saveEdit() {
     updateProfile({
@@ -227,6 +245,73 @@ export function ProfileScreen() {
             </motion.div>
           )}
         </LiquidGlass>
+
+        {/* ——— аккаунт ———
+            Единственное место в приложении, где живут вход и регистрация.
+            Раньше это была плавающая кнопка «Войти» в правом верхнем углу —
+            она накрывала переключатель темы и дублировала смысл аватара. */}
+        <Section icon={UserCircle2} title="Аккаунт">
+          {status === "loading" ? (
+            <div className="h-11 animate-pulse rounded-xl bg-[rgb(var(--glass-hi)/0.06)]" />
+          ) : account ? (
+            <>
+              <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <Cloud size={15} className="shrink-0 text-stable" />
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13px] text-hi">
+                      {account.name || "Ученик"}
+                    </span>
+                    <span className="block truncate text-[11px] text-lo">{account.email}</span>
+                  </span>
+                </span>
+                <button
+                  onClick={() => signOut({ callbackUrl: "/" })}
+                  className="focus-ring flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-xl border border-line px-3 text-[12px] text-mid transition-colors hover:text-hi"
+                >
+                  <LogOut size={13} /> Выйти
+                </button>
+              </div>
+              <p className="m-0 mt-3 text-[11px] leading-snug text-lo">
+                Прогресс, XP и настройки синхронизируются с аккаунтом — можно заниматься
+                с телефона и с компьютера.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="flex items-start gap-2.5 rounded-xl border border-warn/30 bg-warn/[0.07] p-3">
+                <CloudOff size={15} className="mt-0.5 shrink-0 text-warn" />
+                <p className="m-0 text-[12.5px] leading-snug text-hi">
+                  Ты занимаешься как гость. Прогресс живёт только в этом браузере —
+                  очистишь данные или откроешь сайт на другом устройстве, и Шпиль
+                  начнётся заново.
+                </p>
+              </div>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <button
+                  onClick={() => openAuth("signup")}
+                  className="focus-ring glossy-btn flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl px-4 text-[13.5px] font-semibold transition-[filter] hover:brightness-110"
+                >
+                  <LogIn size={14} /> Создать аккаунт
+                </button>
+                <button
+                  onClick={() => openAuth("signin")}
+                  className="focus-ring flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-line px-4 text-[13.5px] font-semibold text-hi transition-colors hover:bg-[rgb(var(--glass-hi)/0.06)]"
+                >
+                  Войти
+                </button>
+              </div>
+              {/* Обещаем ровно то, что делает код: /api/auth/link-anon переносит
+                  журнал тренировок (SessionResult) по анонимному id. Прогресс
+                  этажей начинает синхронизироваться с аккаунтом уже после входа —
+                  обещать перенос всего было бы неправдой. */}
+              <p className="m-0 mt-3 text-[11px] leading-snug text-lo">
+                История твоих тренировок перенесётся в аккаунт, а дальше прогресс
+                будет сохраняться на сервере — с любого устройства.
+              </p>
+            </>
+          )}
+        </Section>
 
         {/* ——— дашборд успеха ——— */}
         <Section icon={TrendingUp} title="Дашборд успеха">
@@ -452,6 +537,26 @@ export function ProfileScreen() {
             </span>
             <Toggle checked={lightMode} onChange={() => toggleLight()} label="Лёгкий режим" />
           </div>
+          {/* Режим родителя. В шапке переключатель есть только с lg — на мобиле
+              и планшете его негде разместить, не столкнув с гейм-метриками.
+              Раньше комментарий в TopBar обещал «переключается в ЛК», но самого
+              переключателя здесь не было, и на мобиле режим был недостижим. */}
+          <div className="flex items-center justify-between gap-3 border-b border-line py-3 lg:border-b-0">
+            <span className="flex min-w-0 items-center gap-2.5 text-[13px] text-hi">
+              <Users size={15} className="shrink-0 text-mid" />
+              <span className="min-w-0">
+                Режим родителя
+                <span className="block text-[11px] leading-snug text-lo">
+                  Спокойный вид без свечения и отчёт об успехах
+                </span>
+              </span>
+            </span>
+            <Toggle
+              checked={mode === "parent"}
+              onChange={(v) => setMode(v ? "parent" : "student")}
+              label="Режим родителя"
+            />
+          </div>
           {/* повтор spotlight-тура: уводим на Шпиль и включаем оверлей.
               Инспектор/зум и шиты закрываем заранее — иначе прожектор
               светит в перекрытый ими экран */}
@@ -477,6 +582,8 @@ export function ProfileScreen() {
           </div>
         )}
       </main>
+
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} defaultMode={authMode} />
     </div>
   );
 }

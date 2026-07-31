@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { fontVars } from "./fonts";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/AuthProvider";
-import { AuthButton } from "@/components/auth/AuthButton";
 import { SyncBridge } from "@/components/auth/SyncBridge";
 
 export const metadata: Metadata = {
@@ -35,17 +34,13 @@ export default function RootLayout({
 
           {/* кнопка ИИ-репетитора теперь контекстная — её рендерит Inspector
               над шитом открытой темы (только Шпиль/Тропа + открытый модуль) */}
+          {/* Вход/регистрация НЕ живут отдельной плавающей кнопкой: раньше она
+              стояла в правом верхнем углу с z-40 и полностью накрывала
+              переключатель темы из TopBar (z-4), перехватывая его клики.
+              Теперь аккаунт — одна точка входа: аватар в TopBar на десктопе и
+              вкладка «Профиль» на мобиле, обе ведут в «Личный кабинет», где
+              лежит блок входа и регистрации. */}
           {children}
-
-          {/* Плавающая кнопка входа/аккаунта — правый верхний угол */}
-          <div
-            className="pointer-events-none fixed right-3 z-40 sm:right-4"
-            style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
-          >
-            <div className="pointer-events-auto">
-              <AuthButton />
-            </div>
-          </div>
         </AuthProvider>
       </body>
     </html>

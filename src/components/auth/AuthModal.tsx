@@ -37,6 +37,23 @@ export function AuthModal({ open, onClose, defaultMode = "signin" }: Props) {
     }
   }, [open, defaultMode]);
 
+  // Esc закрывает + фон не скроллится под модалкой. Модалка стала единственной
+  // точкой входа/регистрации во всём приложении (её открывают ЛК, чат
+  // репетитора и лендинг), поэтому базовое поведение диалога обязательно.
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open, onClose]);
+
   async function linkAnonId() {
     try {
       const anonId = window.localStorage.getItem("egehack.anon.v1");
@@ -113,6 +130,9 @@ export function AuthModal({ open, onClose, defaultMode = "signin" }: Props) {
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[60] grid place-items-center bg-black/60 p-4 backdrop-blur-sm"
           onClick={onClose}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="auth-modal-title"
         >
           <motion.form
             initial={{ scale: 0.94, opacity: 0, y: 12 }}
@@ -141,7 +161,7 @@ export function AuthModal({ open, onClose, defaultMode = "signin" }: Props) {
               <Sparkles size={20} className="text-accent" />
             </div>
 
-            <h2 className="mb-1 font-serif text-2xl text-hi">
+            <h2 id="auth-modal-title" className="mb-1 font-serif text-2xl text-hi">
               {mode === "signin" ? "С возвращением" : "Создать аккаунт"}
             </h2>
             <p className="mb-6 text-[13px] leading-snug text-mid">

@@ -6,6 +6,8 @@ import { Play } from "lucide-react";
 import { PixelCanvas } from "./PixelCanvas";
 import { AnimatedLayerButton } from "@/components/ui/animated-layer-button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { AuthModal } from "@/components/auth/AuthModal";
+import { useSession } from "next-auth/react";
 import { useApp } from "@/lib/store";
 
 const MARQUEE = [
@@ -49,6 +51,8 @@ function Marquee() {
 export function Landing() {
   const setScreen = useApp((s) => s.setScreen);
   const [loaded, setLoaded] = React.useState(false);
+  const [authOpen, setAuthOpen] = React.useState(false);
+  const { data: session, status } = useSession();
   React.useEffect(() => {
     const t = setTimeout(() => setLoaded(true), 80);
     return () => clearTimeout(t);
@@ -135,6 +139,40 @@ export function Landing() {
           <Play size={15} /> Демо без регистрации
         </button>
       </motion.div>
+
+      {/* Вход для вернувшихся. Намеренно строкой под CTA, а не кнопкой в углу:
+          в правом верхнем углу уже стоит переключатель темы, а плавающая
+          кнопка «Войти» там накрывала его и перехватывала клики.
+          Показываем ТОЛЬКО гостю: лендинг — стартовый экран при каждой загрузке,
+          и предлагать вход тому, кто уже вошёл, — дезориентация. Авторизованному
+          вместо этого подтверждаем, что он в аккаунте. */}
+      {status !== "loading" && (
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={loaded ? { opacity: 1 } : {}}
+          transition={{ delay: 0.25, duration: 0.8 }}
+          className="z-10 m-0 mt-4 text-[13px] text-mid"
+        >
+          {session?.user ? (
+            <>
+              Ты вошёл как{" "}
+              <b className="text-hi">{session.user.name || session.user.email}</b>
+            </>
+          ) : (
+            <>
+              Уже занимался?{" "}
+              <button
+                onClick={() => setAuthOpen(true)}
+                className="focus-ring rounded font-semibold text-accent underline-offset-4 hover:underline"
+              >
+                Войти
+              </button>
+            </>
+          )}
+        </motion.p>
+      )}
+
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} defaultMode="signin" />
 
       {/* marquee */}
       <motion.div

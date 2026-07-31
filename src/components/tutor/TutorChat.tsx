@@ -3,6 +3,7 @@
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Loader2, MessageCircle, Sparkles, X } from "lucide-react";
+import { AuthModal } from "@/components/auth/AuthModal";
 import { useAnonAskCount } from "./useAnonAskCount";
 import { renderChatMarkdown } from "@/lib/chat-md";
 import { FIPI_RU } from "@/data/fipi-codifier-ru";
@@ -21,6 +22,7 @@ export function TutorChat() {
   const [input, setInput] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [showSignup, setShowSignup] = React.useState(false);
+  const [authOpen, setAuthOpen] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
   const anon = useAnonAskCount();
@@ -204,12 +206,18 @@ export function TutorChat() {
                 и репетитор будет помнить твой прогресс и темы, над которыми ты работаешь.
               </p>
               <div className="flex flex-col gap-2">
-                <a
-                  href="/?signup=1"
+                {/* Раньше вело на /?signup=1 — параметр signup нигде не читался,
+                    и кнопка просто выбрасывала на лендинг. Теперь открывает ту же
+                    модалку регистрации, что и «Личный кабинет». */}
+                <button
+                  onClick={() => {
+                    setShowSignup(false);
+                    setAuthOpen(true);
+                  }}
                   className="grid h-12 place-items-center rounded-xl bg-[rgb(var(--accent))] font-medium text-[rgb(var(--bg-0))] transition hover:brightness-110"
                 >
                   Создать аккаунт
-                </a>
+                </button>
                 <button
                   onClick={() => setShowSignup(false)}
                   className="grid h-12 place-items-center rounded-xl border border-white/10 text-[rgb(var(--mid))] transition hover:bg-white/5"
@@ -221,6 +229,8 @@ export function TutorChat() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} defaultMode="signup" />
     </div>
   );
 }

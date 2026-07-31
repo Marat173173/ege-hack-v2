@@ -63,12 +63,18 @@ export function SubjectBubbles() {
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="liquid-glass focus-ring flex items-center gap-2 rounded-full px-3 py-2 text-[13px] font-semibold text-hi transition-transform active:scale-95 md:px-3.5"
+        /* min-w-0 + shrink НА ВСЕХ ширинах — это последний рубеж раскладки:
+           когда места в верхнем ряду не хватает, ужимается именно пилюля
+           предмета (название усекается многоточием, полное имя всегда доступно
+           по тапу), а не «вытекает» наружу, накрывая соседние группы.
+           h-11 — та же высота, что у остальных пилюль ряда; заодно закрывает
+           минимальную тап-зону 44px (было 37,5). */
+        className="liquid-glass focus-ring flex h-11 min-w-0 shrink items-center gap-2 rounded-full px-3 text-[13px] font-semibold text-hi transition-transform active:scale-95 md:px-3.5"
         title="Сменить предмет"
       >
-        <ActiveIcon size={17} className="text-accent" />
-        <span className="max-w-[92px] truncate md:max-w-none">{active?.short}</span>
-        <ChevronDown size={14} className="text-lo" />
+        <ActiveIcon size={17} className="shrink-0 text-accent" />
+        <span className="min-w-0 truncate">{active?.short}</span>
+        <ChevronDown size={14} className="shrink-0 text-lo" />
       </button>
 
       <AnimatePresence>
