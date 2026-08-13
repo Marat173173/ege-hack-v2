@@ -1,5 +1,6 @@
 import type { SubjectDef } from "./types";
 import { buildRusFloors } from "./rus-fipi-floors";
+import { SUBJECTS_MULTI } from "./subjects-multi";
 
 /**
  * РЕЕСТР ПРЕДМЕТОВ ЕГЭ/ОГЭ.
@@ -258,6 +259,7 @@ export const REGISTRY: SubjectDef[] = [
       { id: "inf-prog", name: "Программирование · №27", tag: "код", prog: 0, stab: 0, boss: true, pattern: "binary" },
     ],
   },
+  ...SUBJECTS_MULTI,
 ];
 
 /** Только готовые предметы (с контентом). */

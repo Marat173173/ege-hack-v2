@@ -1,15 +1,15 @@
 /**
- * Скрипт индексации сгенерированных материалов в БД.
+ * Индексация материалов в KnowledgeChunk + расчёт эмбеддингов через Polza.
  *
- * Читает все JSON из data/generated/ru/, для каждого фрагмента считает
- * эмбеддинг через Polza API (батчами по 50, для скорости и экономии)
- * и сохраняет в таблицу KnowledgeChunk.
+ * Читает data/generated/{subject}/*.json, батчами (по 50) считает эмбеддинги
+ * (text-embedding-3-small через Polza, 1536-мерные), сохраняет в БД.
  *
  * Запуск:
- *   POLZA_API_KEY=sk-... DATABASE_URL=postgres://... npx tsx scripts/index-knowledge.ts
+ *   SUBJECT=russian    npm run rag:index
+ *   SUBJECT=social     npm run rag:index
+ *   и т.д.
  *
- * Идемпотентен: повторный запуск заменяет существующие записи
- * по детерминированному ID `ru-{topicCode}-{kind}`.
+ * Идемпотентен: upsertChunk() перезаписывает по детерминированному id.
  */
 
 import * as fs from "fs";
@@ -17,12 +17,11 @@ import * as path from "path";
 import { embedBatch } from "../src/lib/rag/embeddings";
 import { upsertChunk } from "../src/lib/rag/search";
 
-const IN_DIR = path.join("data", "generated", "ru");
-const SUBJECT = "russian";
-const BATCH_SIZE = 50; // Polza/OpenAI поддерживают до 2048, но 50 — разумный баланс
+const SUBJECT = (process.env.SUBJECT || "russian").toLowerCase();
+const IN_DIR = path.join("data", "generated", SUBJECT);
+const BATCH = 50;
 
 type Material = { kind: string; title: string; text: string };
-
 type TopicOutput = {
   topicCode: string;
   topicTitle: string;
@@ -43,26 +42,25 @@ type ChunkToIndex = {
 
 async function main() {
   if (!process.env.POLZA_API_KEY) {
-    console.error("❌ Не задан POLZA_API_KEY.");
+    console.error("❌ POLZA_API_KEY не задан.");
     process.exit(1);
   }
 
   if (!fs.existsSync(IN_DIR)) {
-    console.error(`❌ Папка ${IN_DIR} не найдена. Сначала запусти generate-materials.ts`);
+    console.error(`❌ Папка ${IN_DIR} не найдена. Сначала: SUBJECT=${SUBJECT} npm run rag:generate`);
     process.exit(1);
   }
 
-  // 1. Собираем все фрагменты в плоский список
-  const files = fs.readdirSync(IN_DIR).filter((f) => f.endsWith(".json"));
-  console.log(`📂 Найдено ${files.length} файлов с материалами\n`);
+  const files = fs.readdirSync(IN_DIR).filter(f => f.endsWith(".json"));
+  console.log(`📂 Найдено ${files.length} файлов в ${IN_DIR}\n`);
 
   const chunks: ChunkToIndex[] = [];
-  for (const file of files) {
-    const raw = fs.readFileSync(path.join(IN_DIR, file), "utf8");
-    const data = JSON.parse(raw) as TopicOutput;
+  for (const f of files) {
+    const data = JSON.parse(fs.readFileSync(path.join(IN_DIR, f), "utf8")) as TopicOutput;
     for (const m of data.materials) {
+      const codeSafe = data.topicCode.replace(/\./g, "_");
       chunks.push({
-        id: `ru-${data.topicCode.replace(/\./g, "_")}-${m.kind}`,
+        id: `${SUBJECT}-${codeSafe}-${m.kind}`,
         subject: SUBJECT,
         topicId: data.parent,
         topicCode: data.topicCode,
@@ -75,19 +73,12 @@ async function main() {
   }
   console.log(`📦 Всего ${chunks.length} фрагментов на индексацию\n`);
 
-  let indexed = 0;
-  let failed = 0;
-
-  // 2. Идём батчами
-  for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-    const batch = chunks.slice(i, i + BATCH_SIZE);
-    console.log(`⚙️  батч ${i / BATCH_SIZE + 1}/${Math.ceil(chunks.length / BATCH_SIZE)} (${batch.length} фрагментов)`);
-
+  let indexed = 0, failed = 0;
+  for (let i = 0; i < chunks.length; i += BATCH) {
+    const batch = chunks.slice(i, i + BATCH);
+    console.log(`⚙️   батч ${Math.floor(i / BATCH) + 1}/${Math.ceil(chunks.length / BATCH)} (${batch.length})`);
     try {
-      // 2a. Получаем эмбеддинги одним запросом
-      const vectors = await embedBatch(batch.map((c) => c.fullText));
-
-      // 2b. Сохраняем в БД по очереди (upsertChunk делает свой INSERT)
+      const vectors = await embedBatch(batch.map(c => c.fullText));
       for (let j = 0; j < batch.length; j++) {
         try {
           await upsertChunk({ ...batch[j], source: "claude-generated", embedding: vectors[j] });
@@ -104,13 +95,8 @@ async function main() {
     }
   }
 
-  console.log(`\n🎉 Готово.`);
-  console.log(`   Проиндексировано: ${indexed}`);
-  console.log(`   Ошибок: ${failed}`);
+  console.log(`\n🎉 Готово.\n   Проиндексировано: ${indexed}\n   Ошибок: ${failed}`);
   process.exit(0);
 }
 
-main().catch((err) => {
-  console.error("Фатальная ошибка:", err);
-  process.exit(1);
-});
+main().catch(e => { console.error("Фатальная ошибка:", e); process.exit(1); });

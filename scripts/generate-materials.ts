@@ -1,171 +1,226 @@
 /**
- * Скрипт генерации учебных материалов по темам кодификатора ФИПИ через Polza AI.
+ * Генератор учебных материалов через Polza AI (Claude Haiku 4.5).
  *
- * Для каждой темы вызывает Claude (через OpenAI-совместимый API Polza)
- * и просит написать:
- *   - правило (rule)
- *   - пример-разбор (example)
- *   - типичные ошибки (mistake)
- *   - терминология (definition)
+ * По каждой подтеме кодификатора ФИПИ создаёт 4 фрагмента:
+ *   rule       — правило/теория (100-200 слов)
+ *   example    — разбор задания (100-200 слов)
+ *   mistake    — типичные ошибки (60-120 слов)
+ *   definition — краткие определения ключевых терминов (60-120 слов)
  *
- * Результат сохраняется в data/generated/ru/{topicCode}.json.
+ * Сохраняет в data/generated/{subject}/*.json.
+ * Затем rag:index читает эту папку и заливает в БД + считает эмбеддинги.
  *
- * Запуск (Windows PowerShell):
- *   $env:POLZA_API_KEY="ваш-ключ-с-polza.ai"
- *   npm run rag:generate
+ * Запуск для разных предметов:
+ *   SUBJECT=russian     npm run rag:generate   (или без переменной — русский по умолчанию)
+ *   SUBJECT=social      npm run rag:generate
+ *   SUBJECT=history     npm run rag:generate
+ *   SUBJECT=math        npm run rag:generate
+ *   SUBJECT=math-base   npm run rag:generate
+ *   SUBJECT=physics     npm run rag:generate
+ *   SUBJECT=literature  npm run rag:generate
+ *   SUBJECT=english     npm run rag:generate
  *
- * Запуск (Railway Console):
- *   POLZA_API_KEY=... npx tsx scripts/generate-materials.ts
- *
- * Идемпотентен: при повторном запуске пропускает уже сгенерированные темы.
- * Стоимость: ~$0.005 за тему (Haiku) × 53 темы ≈ $0.30 за весь русский язык.
+ * Идемпотентен: пропускает подтемы, для которых JSON уже существует.
+ * Стоимость: ~$0.30 на предмет через Polza (~30 ₽).
+ * Длительность: 10-20 минут на предмет.
  */
 
-import OpenAI from "openai";
-import { FIPI_RU, type FipiTopic } from "../src/data/fipi-codifier-ru";
 import * as fs from "fs";
 import * as path from "path";
+import OpenAI from "openai";
+import { FIPI_RU } from "../src/data/fipi-codifier-ru";
+import { FIPI_SOCIAL } from "../src/data/fipi-codifier-social";
+import { FIPI_HISTORY } from "../src/data/fipi-codifier-history";
+import { FIPI_MATH } from "../src/data/fipi-codifier-math";
+import { FIPI_MATH_BASE } from "../src/data/fipi-codifier-math-base";
+import { FIPI_PHYSICS } from "../src/data/fipi-codifier-physics";
+import { FIPI_LITERATURE } from "../src/data/fipi-codifier-literature";
+import { FIPI_ENGLISH } from "../src/data/fipi-codifier-english";
+import type { FipiTopic } from "../src/data/fipi-codifier-ru";
 
-const apiKey = process.env.POLZA_API_KEY;
-if (!apiKey) {
-  console.error("❌ Не задан POLZA_API_KEY.");
-  console.error("   Получи ключ на https://polza.ai/dashboard/api-keys");
-  console.error("   В PowerShell: $env:POLZA_API_KEY=\"sk-...\"");
+// ═══════════════════════════════════════════════════════════════
+// Конфигурация по предметам
+// ═══════════════════════════════════════════════════════════════
+
+interface SubjectConfig {
+  key: string;
+  displayName: string;
+  topics: FipiTopic[];
+  /** Специфический контекст для промпта — «ты методист по …» */
+  domainPromptRole: string;
+  /** Особенности — формулы для физики, произведения для литературы и т.д. */
+  domainNotes: string;
+}
+
+const SUBJECTS: Record<string, SubjectConfig> = {
+  russian: {
+    key: "russian",
+    displayName: "Русский язык",
+    topics: FIPI_RU,
+    domainPromptRole: "методист ЕГЭ по русскому языку",
+    domainNotes: "Используй правила орфографии и пунктуации ФГОС. Примеры бери из русской литературы или живого языка.",
+  },
+  social: {
+    key: "social",
+    displayName: "Обществознание",
+    topics: FIPI_SOCIAL,
+    domainPromptRole: "методист ЕГЭ по обществознанию",
+    domainNotes: "Используй понятия из ФГОС и ФОП. Приводи примеры из современной жизни России и мира.",
+  },
+  history: {
+    key: "history",
+    displayName: "История",
+    topics: FIPI_HISTORY,
+    domainPromptRole: "методист ЕГЭ по истории России и всеобщей истории",
+    domainNotes: "Используй точные даты и имена. Опирайся на историко-культурный стандарт РФ.",
+  },
+  math: {
+    key: "math",
+    displayName: "Математика (профиль)",
+    topics: FIPI_MATH,
+    domainPromptRole: "методист ЕГЭ по математике профильного уровня",
+    domainNotes: "Формулы записывай в LaTeX-стиле: $x^2$, $\\sqrt{2}$, $\\int$. Разборы задач — пошаговые.",
+  },
+  "math-base": {
+    key: "math-base",
+    displayName: "Математика (база)",
+    topics: FIPI_MATH_BASE,
+    domainPromptRole: "методист ЕГЭ по математике базового уровня",
+    domainNotes: "Практические задачи (проценты, чтение графиков, простая геометрия). Без сложного анализа.",
+  },
+  physics: {
+    key: "physics",
+    displayName: "Физика",
+    topics: FIPI_PHYSICS,
+    domainPromptRole: "методист ЕГЭ по физике",
+    domainNotes: "Формулы в LaTeX. В разборах указывай единицы измерения СИ. Физический смысл — первичен.",
+  },
+  literature: {
+    key: "literature",
+    displayName: "Литература",
+    topics: FIPI_LITERATURE,
+    domainPromptRole: "методист ЕГЭ по литературе",
+    domainNotes: "По каждому произведению: тематика, композиция, ключевые образы, литературные приёмы. Цитируй.",
+  },
+  english: {
+    key: "english",
+    displayName: "Английский язык",
+    topics: FIPI_ENGLISH,
+    domainPromptRole: "методист ЕГЭ по английскому языку",
+    domainNotes: "Примеры на английском с переводом на русский. Правила грамматики — простыми словами.",
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// Инициализация
+// ═══════════════════════════════════════════════════════════════
+
+const SUBJECT_KEY = (process.env.SUBJECT || "russian").toLowerCase();
+const subject = SUBJECTS[SUBJECT_KEY];
+if (!subject) {
+  console.error(`❌ Неизвестный SUBJECT="${SUBJECT_KEY}".`);
+  console.error(`Доступные: ${Object.keys(SUBJECTS).join(", ")}`);
+  process.exit(1);
+}
+
+if (!process.env.POLZA_API_KEY) {
+  console.error("❌ POLZA_API_KEY не задан.");
   process.exit(1);
 }
 
 const client = new OpenAI({
-  apiKey,
+  apiKey: process.env.POLZA_API_KEY,
   baseURL: process.env.POLZA_BASE_URL || "https://polza.ai/api/v1",
 });
+const MODEL = process.env.POLZA_MODEL || "anthropic/claude-haiku-4.5";
+const OUT_DIR = path.join("data", "generated", subject.key);
+fs.mkdirSync(OUT_DIR, { recursive: true });
 
-const MODEL = process.env.POLZA_MODEL || "anthropic/claude-haiku-4-5";
-const OUT_DIR = path.join("data", "generated", "ru");
+// ═══════════════════════════════════════════════════════════════
+// Генерация
+// ═══════════════════════════════════════════════════════════════
 
-type Material = {
-  kind: "rule" | "example" | "mistake" | "definition";
-  title: string;
-  text: string;
-};
+type Material = { kind: "rule" | "example" | "mistake" | "definition"; title: string; text: string };
 
-type TopicOutput = {
-  topicCode: string;
-  topicTitle: string;
-  parent: string | null;
-  materials: Material[];
-};
+function systemPrompt(): string {
+  return `Ты — ${subject.domainPromptRole}. Пишешь короткие ясные учебные материалы для школьников 10-11 класса.
 
-const SYSTEM_PROMPT = `Ты — методист подготовки к ЕГЭ по русскому языку.
-Пишешь учебные материалы для школьников 10–11 классов.
+${subject.domainNotes}
 
-Стиль:
-- Простой человеческий язык, без занудства и канцеляризма
-- Конкретно, по делу, с примерами
-- Каждый материал — самодостаточный фрагмент 100-300 слов
-- Никаких воды, общих слов "очень важно", "ключевая роль"
+По заданной подтеме кодификатора ФИПИ создаёшь 4 фрагмента:
+1. rule       — правило/теория, 100-200 слов. Ясно объясни главное.
+2. example    — разбор реального задания ЕГЭ, 100-200 слов. Шаг за шагом.
+3. mistake    — 2-3 типичных ошибки школьников на этой теме, 60-120 слов.
+4. definition — 3-5 ключевых терминов темы с определениями, 60-120 слов.
 
-Формат ответа — СТРОГО валидный JSON-массив без обрамления markdown:
-[
-  {"kind": "rule", "title": "...", "text": "..."},
-  {"kind": "example", "title": "...", "text": "..."},
-  {"kind": "mistake", "title": "...", "text": "..."},
-  {"kind": "definition", "title": "...", "text": "..."}
-]
-
-Поля:
-- kind: "rule" (правило), "example" (разбор), "mistake" (типичная ошибка), "definition" (термины)
-- title: краткое название фрагмента (3-7 слов)
-- text: сам материал (100-300 слов, простой текст без markdown)`;
-
-function buildUserPrompt(topic: FipiTopic): string {
-  return `Сгенерируй 4 учебных материала по теме ЕГЭ:
-"${topic.title}" (код кодификатора ФИПИ: ${topic.code})
-
-Структура: ровно 4 фрагмента в массиве, по одному каждого kind:
-1. rule — суть темы, как её понимать и применять
-2. example — разбор одного типового задания ЕГЭ с этой темой (с пошаговым решением)
-3. mistake — типичные ошибки школьников + как их избежать
-4. definition — ключевые термины темы с короткими определениями
-
-Помни: только валидный JSON-массив без \`\`\`json или другого обрамления.`;
+Формат ответа — СТРОГО валидный JSON, без markdown и без \`\`\`:
+{
+  "materials": [
+    { "kind": "rule",       "title": "…", "text": "…" },
+    { "kind": "example",    "title": "…", "text": "…" },
+    { "kind": "mistake",    "title": "…", "text": "…" },
+    { "kind": "definition", "title": "…", "text": "…" }
+  ]
+}`;
 }
 
-async function generateForTopic(topic: FipiTopic): Promise<Material[]> {
-  const response = await client.chat.completions.create({
+async function generateForTopic(t: FipiTopic): Promise<{ materials: Material[] }> {
+  const resp = await client.chat.completions.create({
     model: MODEL,
-    max_tokens: 2500,
+    max_tokens: 3000,
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: buildUserPrompt(topic) },
+      { role: "system", content: systemPrompt() },
+      { role: "user",   content: `Подтема кодификатора ФИПИ ${t.code}: "${t.title}"` },
     ],
   });
-
-  const content = response.choices[0]?.message?.content || "";
-  // Срезаем возможные markdown-обёртки на всякий случай
-  const raw = content.replace(/```json\s*|\s*```/g, "").trim();
-
-  try {
-    const parsed = JSON.parse(raw) as Material[];
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      throw new Error("ответ не массив или пустой");
-    }
-    return parsed;
-  } catch (err) {
-    console.error("⚠️  Не удалось распарсить JSON. Сырой ответ:\n", raw.slice(0, 300));
-    throw err;
-  }
+  const raw = (resp.choices[0]?.message?.content || "").replace(/```json\s*|\s*```/g, "").trim();
+  return JSON.parse(raw);
 }
 
 async function main() {
-  fs.mkdirSync(OUT_DIR, { recursive: true });
-
-  console.log(`📚 Генерирую материалы по ${FIPI_RU.length} темам ФИПИ`);
-  console.log(`   Через Polza AI (${process.env.POLZA_BASE_URL || "https://polza.ai/api/v1"})`);
+  console.log(`\n📚 Генерирую материалы: ${subject.displayName}`);
   console.log(`   Модель: ${MODEL}`);
-  console.log(`   Папка вывода: ${OUT_DIR}\n`);
+  console.log(`   Подтем: ${subject.topics.length}`);
+  console.log(`   Выход: ${OUT_DIR}\n`);
 
-  let done = 0;
-  let skipped = 0;
-  let failed = 0;
+  let done = 0, skipped = 0, failed = 0;
 
-  for (const topic of FIPI_RU) {
-    const outFile = path.join(OUT_DIR, `${topic.code.replace(/\./g, "_")}.json`);
-
-    if (fs.existsSync(outFile)) {
-      console.log(`⏭️   ${topic.code}  уже есть, пропускаю`);
+  for (const t of subject.topics) {
+    const codeSafe = t.code.replace(/[.\s]/g, "_");
+    const outPath = path.join(OUT_DIR, `${codeSafe}.json`);
+    if (fs.existsSync(outPath)) {
+      console.log(`⏭️   ${t.code}\tуже сгенерирован`);
       skipped++;
       continue;
     }
 
     try {
-      console.log(`⚙️   ${topic.code}  ${topic.title.slice(0, 60)}...`);
-      const materials = await generateForTopic(topic);
-
-      const out: TopicOutput = {
-        topicCode: topic.code,
-        topicTitle: topic.title,
-        parent: topic.parent,
-        materials,
-      };
-      fs.writeFileSync(outFile, JSON.stringify(out, null, 2), "utf8");
-      console.log(`✅  ${topic.code}  готово (${materials.length} фрагментов)`);
+      console.log(`⚙️   ${t.code}\t${t.title.slice(0, 60)}...`);
+      const result = await generateForTopic(t);
+      if (!Array.isArray(result.materials) || result.materials.length !== 4) {
+        throw new Error("ожидался массив из 4 материалов");
+      }
+      fs.writeFileSync(outPath, JSON.stringify({
+        topicCode: t.code,
+        topicTitle: t.title,
+        parent: t.parent ?? null,
+        materials: result.materials,
+      }, null, 2));
+      console.log(`✅  ${t.code}\tготово (4 фрагмента)`);
       done++;
     } catch (err) {
-      console.error(`❌  ${topic.code}  ошибка:`, (err as Error).message);
+      console.error(`❌  ${t.code}\tошибка: ${(err as Error).message}`);
       failed++;
     }
 
-    // Небольшая пауза, чтобы не упереться в rate limit
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 500));
   }
 
   console.log(`\n🎉 Готово.`);
-  console.log(`   Сгенерировано: ${done}`);
-  console.log(`   Пропущено (уже было): ${skipped}`);
+  console.log(`   Создано: ${done}`);
+  console.log(`   Пропущено: ${skipped}`);
   console.log(`   Ошибок: ${failed}`);
+  console.log(`\nСледующий шаг: SUBJECT=${subject.key} npm run rag:index`);
 }
 
-main().catch((err) => {
-  console.error("Фатальная ошибка:", err);
-  process.exit(1);
-});
+main().catch(e => { console.error("Фатальная ошибка:", e); process.exit(1); });

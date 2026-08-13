@@ -1,48 +1,110 @@
 /**
- * Расширенная генерация тренировочных ЕГЭ-заданий по темам кодификатора ФИПИ.
+ * Генерация тренировочных ЕГЭ-заданий по подтемам ФИПИ.
+ * По умолчанию — 40 заданий на подтему, 4 батча (базовые/средние/сред-сложные/сложные).
  *
- * По умолчанию генерирует ~40 заданий на подтему, батчами по 10 заданий за раз
- * (4 батча на подтему). Каждый батч имеет свой профиль сложности:
- *   - батч 1: базовые (difficulty 1-2)
- *   - батч 2: средние (difficulty 2)
- *   - батч 3: средне-сложные (difficulty 2-3)
- *   - батч 4: сложные (difficulty 3)
- *
- * Идемпотентен — считает уже существующие задания и добирает до цели.
+ * Формат в БД: Task { topicId, exam, title, body(JSON), answer, explanation }.
+ * topicId для мультипредметности: для русского — просто "3.7.6" (legacy),
+ * для остальных — "{subject}-{код}" (например "social-1.3").
  *
  * Запуск:
- *   POLZA_API_KEY=sk-... DATABASE_URL=postgres://... npx tsx scripts/generate-tasks.ts
+ *   SUBJECT=russian    npm run rag:tasks
+ *   SUBJECT=social     npm run rag:tasks
+ *   и т.д.
  *
- * Стоимость: ~$0.04 за подтему × 63 = $2.5 ≈ 250 ₽.
- * Длительность: ~1–2 часа.
+ * Переменные:
+ *   TARGET_PER_TOPIC (по умолчанию 40)
+ *   BATCH_SIZE       (по умолчанию 10)
  */
 
 import OpenAI from "openai";
 import { PrismaClient } from "@prisma/client";
-import { FIPI_RU, type FipiTopic } from "../src/data/fipi-codifier-ru";
+import { FIPI_RU } from "../src/data/fipi-codifier-ru";
+import { FIPI_SOCIAL } from "../src/data/fipi-codifier-social";
+import { FIPI_HISTORY } from "../src/data/fipi-codifier-history";
+import { FIPI_MATH } from "../src/data/fipi-codifier-math";
+import { FIPI_MATH_BASE } from "../src/data/fipi-codifier-math-base";
+import { FIPI_PHYSICS } from "../src/data/fipi-codifier-physics";
+import { FIPI_LITERATURE } from "../src/data/fipi-codifier-literature";
+import { FIPI_ENGLISH } from "../src/data/fipi-codifier-english";
+import type { FipiTopic } from "../src/data/fipi-codifier-ru";
 
-const apiKey = process.env.POLZA_API_KEY;
-if (!apiKey) {
-  console.error("❌ POLZA_API_KEY не задан.");
+// ═══ Конфигурация ═══
+
+interface SubjectCfg {
+  displayName: string;
+  topics: FipiTopic[];
+  exam: string;
+  /** Префикс для topicId в БД (undefined для русского - legacy без префикса). */
+  topicIdPrefix?: string;
+  role: string;
+  domainNotes: string;
+}
+
+const SUBJECTS: Record<string, SubjectCfg> = {
+  russian: {
+    displayName: "Русский язык", topics: FIPI_RU, exam: "ege",
+    role: "методист ЕГЭ по русскому языку",
+    domainNotes: "Задания на орфографию, пунктуацию, культуру речи, средства выразительности.",
+  },
+  social: {
+    displayName: "Обществознание", topics: FIPI_SOCIAL, exam: "ege", topicIdPrefix: "social",
+    role: "методист ЕГЭ по обществознанию",
+    domainNotes: "Задания на понятия, связи, признаки, характеристики. Опирайся на ФГОС.",
+  },
+  history: {
+    displayName: "История", topics: FIPI_HISTORY, exam: "ege", topicIdPrefix: "history",
+    role: "методист ЕГЭ по истории",
+    domainNotes: "Задания на даты, персоналии, причины и следствия событий, культуру эпохи.",
+  },
+  math: {
+    displayName: "Математика (профиль)", topics: FIPI_MATH, exam: "ege", topicIdPrefix: "math",
+    role: "методист ЕГЭ по математике профильного уровня",
+    domainNotes: "Задачи с числовым ответом или выбором варианта. Формулы в LaTeX ($x^2$, $\\sqrt{2}$).",
+  },
+  "math-base": {
+    displayName: "Математика (база)", topics: FIPI_MATH_BASE, exam: "ege-base", topicIdPrefix: "math-base",
+    role: "методист ЕГЭ по математике базового уровня",
+    domainNotes: "Практические задачи с числовым ответом. Проценты, графики, геометрия.",
+  },
+  physics: {
+    displayName: "Физика", topics: FIPI_PHYSICS, exam: "ege", topicIdPrefix: "physics",
+    role: "методист ЕГЭ по физике",
+    domainNotes: "Задачи на понимание законов и применение формул. Единицы СИ. Формулы в LaTeX.",
+  },
+  literature: {
+    displayName: "Литература", topics: FIPI_LITERATURE, exam: "ege", topicIdPrefix: "literature",
+    role: "методист ЕГЭ по литературе",
+    domainNotes: "Задания на знание произведений: сюжет, персонажи, приёмы, композиция.",
+  },
+  english: {
+    displayName: "Английский язык", topics: FIPI_ENGLISH, exam: "ege", topicIdPrefix: "english",
+    role: "методист ЕГЭ по английскому языку",
+    domainNotes: "Задания на грамматику, лексику, чтение. Формулировки на английском, ответы можно на русском.",
+  },
+};
+
+const SUBJECT_KEY = (process.env.SUBJECT || "russian").toLowerCase();
+const cfg = SUBJECTS[SUBJECT_KEY];
+if (!cfg) {
+  console.error(`❌ Неизвестный SUBJECT="${SUBJECT_KEY}". Доступно: ${Object.keys(SUBJECTS).join(", ")}`);
   process.exit(1);
 }
-if (!process.env.DATABASE_URL) {
-  console.error("❌ DATABASE_URL не задан.");
-  process.exit(1);
-}
+
+if (!process.env.POLZA_API_KEY) { console.error("❌ POLZA_API_KEY не задан."); process.exit(1); }
+if (!process.env.DATABASE_URL)  { console.error("❌ DATABASE_URL не задан.");  process.exit(1); }
 
 const client = new OpenAI({
-  apiKey,
+  apiKey: process.env.POLZA_API_KEY,
   baseURL: process.env.POLZA_BASE_URL || "https://polza.ai/api/v1",
 });
-
 const MODEL = process.env.POLZA_MODEL || "anthropic/claude-haiku-4.5";
-const TARGET_PER_TOPIC = Number(process.env.TARGET_PER_TOPIC ?? "40");
-const BATCH_SIZE = Number(process.env.BATCH_SIZE ?? "10");
-
+const TARGET = Number(process.env.TARGET_PER_TOPIC ?? "40");
+const BATCH = Number(process.env.BATCH_SIZE ?? "10");
 const prisma = new PrismaClient();
 
-type GeneratedTask = {
+// ═══ Промпт ═══
+
+type GenTask = {
   title: string;
   question: string;
   options: string[];
@@ -51,161 +113,131 @@ type GeneratedTask = {
   difficulty?: number;
 };
 
-/** Профили сложности для батчей: по возрастающей. */
-const DIFFICULTY_PROFILES = [
-  { label: "базовые", desc: "простые задания уровня начала подготовки, difficulty 1–2" },
-  { label: "средние", desc: "типичные задания реального ЕГЭ, difficulty 2" },
-  { label: "средне-сложные", desc: "задания с ловушками и требующие внимания, difficulty 2–3" },
-  { label: "сложные", desc: "олимпиадного уровня, difficulty 3, с редкими случаями и исключениями" },
+const PROFILES = [
+  { label: "базовые",         desc: "простые задания уровня начала подготовки, difficulty 1-2" },
+  { label: "средние",         desc: "типичные задания реального ЕГЭ, difficulty 2" },
+  { label: "средне-сложные",  desc: "с ловушками и требующие внимания, difficulty 2-3" },
+  { label: "сложные",         desc: "олимпиадного уровня, difficulty 3, редкие случаи" },
 ];
 
-const SYSTEM_PROMPT = `Ты — методист ЕГЭ по русскому языку. Генерируешь тренировочные задания
-для школьников 10-11 класса.
+const SYSTEM = `Ты — ${cfg.role}. Генерируешь тренировочные тестовые задания для школьников 10-11 класса.
 
-Требования к заданиям:
-- Формат: закрытый тест с 4 вариантами ответа (только один правильный).
-- Вопрос должен проверять понимание темы, а не механическое заучивание.
-- Варианты правдоподобные — все выглядят как возможные ответы.
-- Задания в одном батче должны различаться формулировками и материалом. Не повторяйся!
-- В разборе (explanation) объясняешь, почему правильный вариант верен и почему неверные — неверны.
+${cfg.domainNotes}
 
-Формат ответа — СТРОГО валидный JSON-массив без markdown:
+Требования:
+- Формат: закрытый тест с 4 вариантами ответа (один правильный).
+- Задание проверяет понимание темы, не механическое заучивание.
+- Варианты правдоподобные.
+- В одном батче задания разные, не повторяйся.
+- В explanation объясняешь, почему правильный вариант верен и почему неверные — неверны.
+
+Ответ — СТРОГО валидный JSON-массив, без markdown:
 [
-  {
-    "title": "Краткая формулировка (3-6 слов)",
-    "question": "Полный текст вопроса.",
-    "options": ["вариант 1", "вариант 2", "вариант 3", "вариант 4"],
-    "correct": 0,
-    "explanation": "Разбор 60-120 слов.",
-    "difficulty": 2
-  },
+  { "title": "…", "question": "…", "options": ["…","…","…","…"], "correct": 0, "explanation": "…", "difficulty": 2 },
   ...
 ]
+correct — индекс правильного в options (0-3). difficulty — 1/2/3.`;
 
-correct — индекс правильного варианта в options (0-3).
-difficulty — 1 (простое), 2 (среднее), 3 (сложное).`;
+function userPrompt(t: FipiTopic, profile: typeof PROFILES[0], count: number, existing: number): string {
+  return `Сгенерируй ${count} заданий по теме ЕГЭ по ${cfg.displayName}:
+"${t.title}" (код ${t.code})
 
-function buildUserPrompt(topic: FipiTopic, profile: (typeof DIFFICULTY_PROFILES)[number], count: number, existing: number): string {
-  return `Сгенерируй ${count} тренировочных заданий по теме ЕГЭ:
-"${topic.title}" (код кодификатора: ${topic.code})
-
-Профиль этой партии: ${profile.label} — ${profile.desc}.
-${existing > 0 ? `\nВ базе уже есть ${existing} заданий по этой теме — сгенерируй ДРУГИЕ задания, не повторяющие уже данные материалы.` : ""}
-
-Только валидный JSON-массив, без \`\`\`json или иного обрамления.`;
+Профиль: ${profile.label} — ${profile.desc}.
+${existing > 0 ? `В базе уже есть ${existing} заданий, сделай ДРУГИЕ.\n` : ""}
+Только валидный JSON-массив, без \`\`\`.`;
 }
 
-async function generateBatch(topic: FipiTopic, profile: (typeof DIFFICULTY_PROFILES)[number], count: number, existing: number): Promise<GeneratedTask[]> {
-  const response = await client.chat.completions.create({
+async function generateBatch(t: FipiTopic, p: typeof PROFILES[0], count: number, existing: number): Promise<GenTask[]> {
+  const resp = await client.chat.completions.create({
     model: MODEL,
     max_tokens: 6000,
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: buildUserPrompt(topic, profile, count, existing) },
+      { role: "system", content: SYSTEM },
+      { role: "user",   content: userPrompt(t, p, count, existing) },
     ],
   });
-
-  const raw = (response.choices[0]?.message?.content || "")
-    .replace(/```json\s*|\s*```/g, "")
-    .trim();
-
-  const parsed = JSON.parse(raw) as GeneratedTask[];
+  const raw = (resp.choices[0]?.message?.content || "").replace(/```json\s*|\s*```/g, "").trim();
+  const parsed = JSON.parse(raw) as GenTask[];
   if (!Array.isArray(parsed)) throw new Error("не массив");
-
-  return parsed.filter(
-    (t) =>
-      t.question &&
-      Array.isArray(t.options) &&
-      t.options.length === 4 &&
-      typeof t.correct === "number" &&
-      t.correct >= 0 &&
-      t.correct <= 3
+  return parsed.filter(t =>
+    t.question && Array.isArray(t.options) && t.options.length === 4 &&
+    typeof t.correct === "number" && t.correct >= 0 && t.correct <= 3
   );
 }
 
+// ═══ Main ═══
+
+/** Строит topicId для БД: для русского — просто код, для остальных — "prefix-код". */
+function toDbTopicId(code: string): string {
+  return cfg.topicIdPrefix ? `${cfg.topicIdPrefix}-${code}` : code;
+}
+
 async function main() {
-  console.log(`📝 Расширение банка заданий:`);
-  console.log(`   Модель: ${MODEL}`);
-  console.log(`   Тем: ${FIPI_RU.length}`);
-  console.log(`   Цель: ${TARGET_PER_TOPIC} заданий на тему`);
-  console.log(`   Батч: ${BATCH_SIZE} заданий за запрос\n`);
+  console.log(`\n📝 Расширенная генерация заданий: ${cfg.displayName}`);
+  console.log(`   Модель: ${MODEL}, тем: ${cfg.topics.length}, цель: ${TARGET}/тема, батч: ${BATCH}\n`);
 
-  let totalCreated = 0;
-  let topicsWithErrors = 0;
+  let totalCreated = 0, batchErrors = 0;
 
-  for (const topic of FIPI_RU) {
+  for (const t of cfg.topics) {
+    const dbTopicId = toDbTopicId(t.code);
     const existing = await prisma.task.count({
-      where: { topicId: topic.code, exam: "ege" },
+      where: { topicId: dbTopicId, exam: cfg.exam },
     });
 
-    if (existing >= TARGET_PER_TOPIC) {
-      console.log(`⏭️   ${topic.code}  уже есть ${existing}/${TARGET_PER_TOPIC}, пропускаю`);
+    if (existing >= TARGET) {
+      console.log(`⏭️   ${t.code}\tуже ${existing}/${TARGET}, пропускаю`);
       continue;
     }
 
-    const needed = TARGET_PER_TOPIC - existing;
-    const batches = Math.ceil(needed / BATCH_SIZE);
-    console.log(`\n⚙️   ${topic.code}  ${topic.title.slice(0, 55)}...`);
+    const needed = TARGET - existing;
+    const batches = Math.ceil(needed / BATCH);
+    console.log(`\n⚙️   ${t.code}\t${t.title.slice(0, 55)}...`);
     console.log(`     Имеется: ${existing}. Нужно ещё: ${needed} (${batches} батчей)`);
 
-    let addedForTopic = 0;
-    let currentExisting = existing;
+    let current = existing, added = 0;
 
     for (let b = 0; b < batches; b++) {
-      const remaining = TARGET_PER_TOPIC - currentExisting;
-      const count = Math.min(BATCH_SIZE, remaining);
-      const profile = DIFFICULTY_PROFILES[b % DIFFICULTY_PROFILES.length];
+      const remaining = TARGET - current;
+      const count = Math.min(BATCH, remaining);
+      const profile = PROFILES[b % PROFILES.length];
 
       try {
         console.log(`     батч ${b + 1}/${batches} (${count} × ${profile.label})...`);
-        const tasks = await generateBatch(topic, profile, count, currentExisting);
-
-        for (const t of tasks) {
+        const tasks = await generateBatch(t, profile, count, current);
+        for (const gen of tasks) {
           await prisma.task.create({
             data: {
-              topicId: topic.code,
-              exam: "ege",
-              title: t.title,
-              body: JSON.stringify({
-                question: t.question,
-                options: t.options,
-                correct: t.correct,
-              }),
-              answer: String(t.correct),
-              explanation: t.explanation,
-              difficulty: t.difficulty ?? 2,
+              topicId: dbTopicId,
+              exam: cfg.exam,
+              title: gen.title,
+              body: JSON.stringify({ question: gen.question, options: gen.options, correct: gen.correct }),
+              answer: String(gen.correct),
+              explanation: gen.explanation,
+              difficulty: gen.difficulty ?? 2,
               tags: [profile.label],
             },
           });
-          addedForTopic++;
-          currentExisting++;
+          added++; current++;
         }
-        console.log(`     ✅  добавлено ${tasks.length} (всего у темы: ${currentExisting})`);
+        console.log(`     ✅  добавлено ${tasks.length} (всего ${current})`);
       } catch (err) {
         console.error(`     ❌  батч ${b + 1} упал: ${(err as Error).message}`);
-        topicsWithErrors++;
+        batchErrors++;
       }
-
-      await new Promise((r) => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 400));
     }
 
-    totalCreated += addedForTopic;
-    console.log(`     🎯 итого добавлено ${addedForTopic} к теме ${topic.code}`);
+    totalCreated += added;
+    console.log(`     🎯 итого добавлено ${added} к ${t.code}`);
   }
 
   console.log(`\n🎉 Готово.`);
-  console.log(`   Всего создано заданий: ${totalCreated}`);
-  console.log(`   Батчей с ошибками: ${topicsWithErrors}`);
-
-  // Финальный отчёт
-  const finalCount = await prisma.task.count({ where: { exam: "ege" } });
-  console.log(`   Всего в банке: ${finalCount}`);
+  console.log(`   Создано заданий: ${totalCreated}`);
+  console.log(`   Батчей с ошибками: ${batchErrors}`);
+  const finalCount = await prisma.task.count({ where: { exam: cfg.exam } });
+  console.log(`   Всего в банке (${cfg.exam}): ${finalCount}`);
 
   await prisma.$disconnect();
 }
 
-main().catch(async (err) => {
-  console.error("Фатальная ошибка:", err);
-  await prisma.$disconnect();
-  process.exit(1);
-});
+main().catch(async e => { console.error("Фатальная ошибка:", e); await prisma.$disconnect(); process.exit(1); });

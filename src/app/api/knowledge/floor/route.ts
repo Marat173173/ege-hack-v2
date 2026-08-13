@@ -1,89 +1,120 @@
 /**
  * GET /api/knowledge/floor?id=<floorId>
  *
- * Возвращает материалы по этажу. Два режима:
- *  1) floorId — код кодификатора ("3.7.6"): возвращает материалы этой подтемы.
- *  2) floorId — legacy-имя ("rus-orf"): возвращает подтемы через parent (совместимость).
+ * Возвращает материалы этажа. Три формата ID:
+ *   1. "3.7.6"       — legacy русский (без префикса) → subject="russian"
+ *   2. "social-1.3"  — новый формат: subject извлекается из префикса
+ *   3. "rus-orf"     — legacy-имя раздела русского → все подтемы этого раздела
  *
- * Формат ответа одинаковый:
- * {
- *   floorId: string,
- *   subtopics: [{ code, title, materials: [{id, kind, title, text}] }]
- * }
+ * Формат ответа:
+ * { floorId, subject, subtopics: [{code, title, materials: [{id, kind, title, text}]}] }
  */
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { FIPI_RU } from "@/data/fipi-codifier-ru";
+import { FIPI_SOCIAL } from "@/data/fipi-codifier-social";
+import { FIPI_HISTORY } from "@/data/fipi-codifier-history";
+import { FIPI_MATH } from "@/data/fipi-codifier-math";
+import { FIPI_MATH_BASE } from "@/data/fipi-codifier-math-base";
+import { FIPI_PHYSICS } from "@/data/fipi-codifier-physics";
+import { FIPI_LITERATURE } from "@/data/fipi-codifier-literature";
+import { FIPI_ENGLISH } from "@/data/fipi-codifier-english";
+import type { FipiTopic } from "@/data/fipi-codifier-ru";
 
 export const runtime = "nodejs";
 export const revalidate = 300;
 
-/** Порядок для показа: правило → разбор → ошибки → термины. */
-function kindOrder(kind: string): number {
-  switch (kind) {
-    case "rule": return 0;
-    case "example": return 1;
-    case "mistake": return 2;
-    case "definition": return 3;
-    default: return 99;
-  }
-}
+const kindOrder = (k: string) =>
+  ({ rule: 0, example: 1, mistake: 2, definition: 3 })[k] ?? 99;
 
-const isFipiCode = (s: string) => /^\d+\.\d+/.test(s);
+/** Реестр всех кодификаторов и их subject в БД. */
+const CODIFIERS: Record<string, { topics: FipiTopic[]; dbSubject: string }> = {
+  russian:    { topics: FIPI_RU,         dbSubject: "russian" },
+  social:     { topics: FIPI_SOCIAL,     dbSubject: "social" },
+  history:    { topics: FIPI_HISTORY,    dbSubject: "history" },
+  math:       { topics: FIPI_MATH,       dbSubject: "math" },
+  "math-base":{ topics: FIPI_MATH_BASE,  dbSubject: "math-base" },
+  physics:    { topics: FIPI_PHYSICS,    dbSubject: "physics" },
+  literature: { topics: FIPI_LITERATURE, dbSubject: "literature" },
+  english:    { topics: FIPI_ENGLISH,    dbSubject: "english" },
+};
+
+/** Определяет subject и код(ы) подтем по floorId. */
+function resolveFloor(floorId: string): {
+  subject: string;
+  codes: string[];
+  subtopics: { code: string; title: string }[];
+} | null {
+  // 1. Новый префиксованный формат: "social-1.3", "math-base-2.5"
+  const prefixMatch = floorId.match(/^([a-z-]+?)-([0-9А-Яа-яA-Z].+)$/);
+  if (prefixMatch) {
+    const [, prefix, code] = prefixMatch;
+    // math-base → "math-base"; social → "social"
+    const subjectKey = prefix in CODIFIERS ? prefix : `${prefix}-base` in CODIFIERS ? `${prefix}-base` : null;
+    if (subjectKey && CODIFIERS[subjectKey]) {
+      const topic = CODIFIERS[subjectKey].topics.find(t => t.code === code);
+      if (topic) return {
+        subject: CODIFIERS[subjectKey].dbSubject,
+        codes: [code],
+        subtopics: [{ code: topic.code, title: topic.title }],
+      };
+    }
+  }
+
+  // 2. Legacy русский код "3.7.6" → одна подтема
+  if (/^\d+\.\d+/.test(floorId)) {
+    const topic = FIPI_RU.find(t => t.code === floorId);
+    if (topic) return {
+      subject: "russian",
+      codes: [floorId],
+      subtopics: [{ code: topic.code, title: topic.title }],
+    };
+  }
+
+  // 3. Legacy-раздел русского "rus-orf" → все подтемы раздела через parent
+  const legacy = FIPI_RU.filter(t => t.parent === floorId);
+  if (legacy.length > 0) {
+    return {
+      subject: "russian",
+      codes: legacy.map(t => t.code),
+      subtopics: legacy.map(t => ({ code: t.code, title: t.title })),
+    };
+  }
+
+  return null;
+}
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const floorId = url.searchParams.get("id");
+  if (!floorId) return NextResponse.json({ error: "id обязателен" }, { status: 400 });
 
-  if (!floorId) {
-    return NextResponse.json({ error: "id обязателен" }, { status: 400 });
-  }
+  const resolved = resolveFloor(floorId);
+  if (!resolved) return NextResponse.json({ floorId, subject: null, subtopics: [] });
 
-  // Определяем список кодов подтем
-  let codes: string[];
-  let subtopics: { code: string; title: string }[];
+  const { subject, codes, subtopics } = resolved;
 
-  if (isFipiCode(floorId)) {
-    // Одна подтема
-    const topic = FIPI_RU.find((t) => t.code === floorId);
-    if (!topic) return NextResponse.json({ floorId, subtopics: [] });
-    codes = [floorId];
-    subtopics = [{ code: topic.code, title: topic.title }];
-  } else {
-    // legacy — по parent
-    const subs = FIPI_RU.filter((t) => t.parent === floorId);
-    codes = subs.map((t) => t.code);
-    subtopics = subs.map((t) => ({ code: t.code, title: t.title }));
-  }
-
-  if (codes.length === 0) {
-    return NextResponse.json({ floorId, subtopics: [] });
-  }
-
-  // Загружаем чанки
   const chunks = await prisma.knowledgeChunk.findMany({
-    where: { subject: "russian", topicCode: { in: codes } },
+    where: { subject, topicCode: { in: codes } },
     select: { id: true, kind: true, title: true, text: true, topicCode: true },
   });
 
-  // Группируем по коду
   const byCode = new Map<string, typeof chunks>();
   for (const c of chunks) {
     if (!c.topicCode) continue;
-    const arr = byCode.get(c.topicCode) ?? [];
-    arr.push(c);
-    byCode.set(c.topicCode, arr);
+    if (!byCode.has(c.topicCode)) byCode.set(c.topicCode, []);
+    byCode.get(c.topicCode)!.push(c);
   }
 
+  type ChunkRow = (typeof chunks)[number];
   const result = subtopics.map((t) => ({
     code: t.code,
     title: t.title,
     materials: (byCode.get(t.code) ?? []).sort(
-      (a: (typeof chunks)[number], b: (typeof chunks)[number]) =>
-        kindOrder(a.kind) - kindOrder(b.kind)
+      (a: ChunkRow, b: ChunkRow) => kindOrder(a.kind) - kindOrder(b.kind)
     ),
   }));
 
-  return NextResponse.json({ floorId, subtopics: result });
+  return NextResponse.json({ floorId, subject, subtopics: result });
 }
