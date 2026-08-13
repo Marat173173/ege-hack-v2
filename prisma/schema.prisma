@@ -134,6 +134,7 @@ model TopicProgress {
 
   @@unique([userId, topicId])
   @@index([userId])
+  @@index([userId, updatedAt(sort: Desc)])
 }
 
 // ————————————————————————————————————————————————
@@ -156,6 +157,7 @@ model Task {
 
   @@index([topicId])
   @@index([exam])
+  @@index([exam, topicId])
 }
 // ————————————————————————————————————————————————
 // 6. RAG: база знаний для ИИ-репетитора
@@ -208,6 +210,7 @@ model ChatMessage {
   createdAt   DateTime    @default(now())
 
   @@index([sessionId])
+  @@index([sessionId, createdAt(sort: Desc)])
 }
 
 // ————————————————————————————————————————————————
@@ -231,4 +234,18 @@ model SessionResult {
 
   @@index([anonId, createdAt])
   @@index([anonId, floorId])
+}
+
+// ————————————————————————————————————————————————
+// 9. Привязка анонимных ID к аккаунту (защита /api/auth/link-anon)
+// ————————————————————————————————————————————————
+
+// Каждый anonId может быть привязан только один раз — не даёт угонять
+// чужую тренировочную историю, зная/подобрав чужой anonId.
+model LinkedAnonId {
+  anonId   String   @id
+  userId   String // без relation намеренно — тот же паттерн, что SessionResult.userId
+  linkedAt DateTime @default(now())
+
+  @@index([userId])
 }

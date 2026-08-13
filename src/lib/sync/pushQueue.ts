@@ -11,6 +11,14 @@
  *
  * Fire-and-forget: если сеть недоступна, ошибка уходит в console.warn.
  * UI не блокируется — при следующем изменении будет новая попытка.
+ *
+ * In-flight запрос отменяется через AbortController при каждом новом push():
+ * если ученик проходит несколько тренировок подряд быстрее, чем успевает
+ * ответить сервер, порядок ответов не гарантирован — без отмены старый
+ * (уже устаревший) ответ мог прилететь позже нового и ничего не перезаписать
+ * (это не проблема), но старый ЗАПРОС мог обработаться на сервере ПОСЛЕ
+ * нового и затереть свежие данные. Отмена гарантирует, что летит не более
+ * одного запроса за раз и это всегда самый свежий.
  */
 
 export type PushFn<T> = (data: T) => void;
@@ -24,6 +32,7 @@ export function createDebouncedPush<T>(opts: {
 
   let timer: ReturnType<typeof setTimeout> | null = null;
   let pending: T | null = null;
+  let controller: AbortController | null = null;
 
   return function push(data: T) {
     pending = data;
@@ -33,15 +42,24 @@ export function createDebouncedPush<T>(opts: {
       pending = null;
       timer = null;
       if (payload == null) return;
+
+      controller?.abort();
+      const thisController = new AbortController();
+      controller = thisController;
+
       try {
         await fetch(url, {
           method,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
           credentials: "same-origin",
+          signal: thisController.signal,
         });
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         console.warn(`[sync] push failed (${method} ${url}):`, err);
+      } finally {
+        if (controller === thisController) controller = null;
       }
     }, delayMs);
   };

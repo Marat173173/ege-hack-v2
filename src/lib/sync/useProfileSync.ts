@@ -17,11 +17,20 @@
  *   - progress через экшен calibrate(id, prog, stab) на каждый этаж
  *
  * Флаг isApplyingFromServer защищает от эха «серверное значение → push».
+ *
+ * isInitialLoading (отдельный мини-стор, useSyncStatus) отражает состояние
+ * первой загрузки наружу — SyncLoadingOverlay блокирует UI, пока не
+ * прилетели все три ответа. Без этого пользователь мог успеть кликнуть
+ * и стартовать тренировку до того, как применились серверные данные —
+ * старые локальные значения затем перезаписывали свежие серверные в БД.
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { useApp } from "@/lib/store";
+import { create } from "zustand";
+import { useApp, type AppState } from "@/lib/store";
+import type { GameState } from "@/lib/gamification";
+import type { Profile } from "@/lib/profile";
 import { createDebouncedPush } from "./pushQueue";
 
 // ─── Ключи, которые синхронизируем ───────────────────────────────
@@ -39,6 +48,10 @@ const PROFILE_KEYS = [
   "sound",
   "notify",
 ] as const;
+
+// Сколько ждём без реального обновления, прежде чем считать данные вкладки
+// «устаревшими» и перезапрашивать их при возврате фокуса (см. Задачу 5).
+const STALE_MS = 5 * 60 * 1000;
 
 // ─── Push-очереди ─────────────────────────────────────────────
 
@@ -58,6 +71,22 @@ const pushProgress = createDebouncedPush<Array<{ topicId: string; prog: number; 
 });
 
 let isApplyingFromServer = false;
+let lastLoadedAt = 0;
+
+// ─── Статус синхронизации (наружу, для SyncLoadingOverlay) ───
+
+interface SyncStatusState {
+  isInitialLoading: boolean;
+}
+
+const useSyncStatusStore = create<SyncStatusState>(() => ({
+  isInitialLoading: false,
+}));
+
+/** Публичный статус первичной загрузки — используется SyncLoadingOverlay. */
+export function useSyncStatus(): SyncStatusState {
+  return useSyncStatusStore();
+}
 
 // ─── Хук ──────────────────────────────────────────────────────
 
@@ -65,8 +94,12 @@ export function useProfileSync() {
   const { data: session, status } = useSession();
   const userId = (session?.user as { id?: string } | undefined)?.id;
   const loadedForUserRef = useRef<string | null>(null);
+  // Инкремент форсирует повторный проход первого эффекта (см. Задачу 5) —
+  // одного лишь сброса loadedForUserRef недостаточно, т.к. ref не входит
+  // в зависимости эффекта и не вызывает его перезапуск.
+  const [reloadTick, setReloadTick] = useState(0);
 
-  // 1. Загрузка с сервера при появлении сессии
+  // 1. Загрузка с сервера при появлении сессии (и при принудительном reload)
   useEffect(() => {
     if (status !== "authenticated" || !userId) return;
     if (loadedForUserRef.current === userId) return;
@@ -74,6 +107,7 @@ export function useProfileSync() {
 
     (async () => {
       isApplyingFromServer = true;
+      useSyncStatusStore.setState({ isInitialLoading: true });
       try {
         const [profileR, gameR, progressR] = await Promise.all([
           fetch("/api/user/profile", { credentials: "same-origin" }).then(safeJson),
@@ -83,41 +117,69 @@ export function useProfileSync() {
         applyProfile(profileR);
         applyGame(gameR);
         applyProgress(progressR);
+        lastLoadedAt = Date.now();
       } catch (err) {
         console.warn("[sync] initial load failed:", err);
       } finally {
         setTimeout(() => {
           isApplyingFromServer = false;
+          useSyncStatusStore.setState({ isInitialLoading: false });
         }, 250);
       }
     })();
-  }, [userId, status]);
+  }, [userId, status, reloadTick]);
 
-  // 2. Слежение за изменениями store → отправка на сервер
+  // 2. Возврат фокуса на вкладку: если прошло больше STALE_MS с последней
+  // успешной загрузки, данные могли устареть (XP заработан на другом
+  // устройстве) — перезапрашиваем через первый эффект.
+  useEffect(() => {
+    if (status !== "authenticated") return;
+
+    function reloadIfStale() {
+      if (Date.now() - lastLoadedAt > STALE_MS) {
+        loadedForUserRef.current = null;
+        setReloadTick((t) => t + 1);
+      }
+    }
+
+    function onVisibility() {
+      if (document.visibilityState === "visible") reloadIfStale();
+    }
+
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", reloadIfStale);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", reloadIfStale);
+    };
+  }, [status]);
+
+  // 3. Слежение за изменениями store → отправка на сервер
   useEffect(() => {
     if (status !== "authenticated") return;
 
     const initial = useApp.getState();
-    let prevGame = pickKeys(getSlice(initial, "game"), GAME_KEYS);
-    let prevProfile = pickKeys(getSlice(initial, "profile"), PROFILE_KEYS);
+    let prevGame = pickKeys(initial.game, GAME_KEYS);
+    let prevProfile = pickKeys(initial.profile, PROFILE_KEYS);
     let prevProgress = extractProgress(initial);
 
     const unsubscribe = useApp.subscribe((state) => {
       // Не пушим, пока идёт первичная заливка с сервера
       if (isApplyingFromServer) {
-        prevGame = pickKeys(getSlice(state, "game"), GAME_KEYS);
-        prevProfile = pickKeys(getSlice(state, "profile"), PROFILE_KEYS);
+        prevGame = pickKeys(state.game, GAME_KEYS);
+        prevProfile = pickKeys(state.profile, PROFILE_KEYS);
         prevProgress = extractProgress(state);
         return;
       }
 
-      const currGame = pickKeys(getSlice(state, "game"), GAME_KEYS);
+      const currGame = pickKeys(state.game, GAME_KEYS);
       if (!shallowEqual(currGame, prevGame)) {
         prevGame = currGame;
         pushGame(currGame);
       }
 
-      const currProfile = pickKeys(getSlice(state, "profile"), PROFILE_KEYS);
+      const currProfile = pickKeys(state.profile, PROFILE_KEYS);
       if (!shallowEqual(currProfile, prevProfile)) {
         prevProfile = currProfile;
         pushProfile(currProfile);
@@ -134,7 +196,7 @@ export function useProfileSync() {
     return unsubscribe;
   }, [status]);
 
-  // 3. При выходе — сбрасываем маркер (чтобы новый юзер загрузил свои данные)
+  // 4. При выходе — сбрасываем маркер (чтобы новый юзер загрузил свои данные)
   useEffect(() => {
     if (status === "unauthenticated" && loadedForUserRef.current) {
       loadedForUserRef.current = null;
@@ -153,50 +215,30 @@ async function safeJson(res: Response): Promise<unknown> {
   }
 }
 
-/** Достаёт значение по ключу из произвольного объекта. */
-function getSlice(state: unknown, key: string): unknown {
-  if (state && typeof state === "object") return (state as Record<string, unknown>)[key];
-  return null;
-}
-
 /** Плоский срез: только указанные ключи из объекта. */
-function pickKeys(obj: unknown, keys: readonly string[]): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  if (obj && typeof obj === "object") {
-    const src = obj as Record<string, unknown>;
-    for (const k of keys) {
-      if (k in src && src[k] !== undefined) out[k] = src[k];
-    }
+function pickKeys<T extends object, K extends keyof T>(obj: T, keys: readonly K[]): Partial<T> {
+  const out: Partial<T> = {};
+  for (const k of keys) {
+    if (obj[k] !== undefined) out[k] = obj[k];
   }
   return out;
 }
 
-function shallowEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+function shallowEqual<T extends object>(a: T, b: T): boolean {
   const ak = Object.keys(a);
   const bk = Object.keys(b);
   if (ak.length !== bk.length) return false;
-  return ak.every((k) => a[k] === b[k]);
+  return ak.every((k) => a[k as keyof T] === b[k as keyof T]);
 }
 
 /** Собираем map {floorId → {prog, stab}} со всех предметов. */
-function extractProgress(state: unknown): Record<string, { prog: number; stab: number }> {
+function extractProgress(state: AppState): Record<string, { prog: number; stab: number }> {
   const out: Record<string, { prog: number; stab: number }> = {};
-  try {
-    const s = state as {
-      data?: Record<string, { floors?: Array<{ id?: string; prog?: number; stab?: number }> }>;
-    };
-    if (s.data) {
-      for (const subjectKey in s.data) {
-        const subj = s.data[subjectKey];
-        if (subj?.floors) {
-          for (const f of subj.floors) {
-            if (f?.id) out[f.id] = { prog: Number(f.prog ?? 0), stab: Number(f.stab ?? 0) };
-          }
-        }
-      }
+  for (const subjectKey in state.data) {
+    const subj = state.data[subjectKey];
+    for (const f of subj?.floors ?? []) {
+      if (f?.id) out[f.id] = { prog: Number(f.prog ?? 0), stab: Number(f.stab ?? 0) };
     }
-  } catch {
-    /* store устроен иначе — молча пропускаем */
   }
   return out;
 }
@@ -219,45 +261,23 @@ function diffProgress(
 // ─── Применение серверных данных ─────────────────────────────
 
 function applyProfile(profile: unknown) {
-  const patch = pickKeys(profile, PROFILE_KEYS);
+  const patch = pickKeys((profile ?? {}) as Profile, PROFILE_KEYS);
   if (Object.keys(patch).length === 0) return;
-  try {
-    const st = useApp.getState() as { updateProfile?: (patch: unknown) => void };
-    if (typeof st.updateProfile === "function") {
-      st.updateProfile(patch);
-      return;
-    }
-  } catch {
-    /* fallback ниже */
-  }
-  useApp.setState((s: unknown) => {
-    const st = s as { profile?: Record<string, unknown> };
-    return { profile: { ...(st.profile ?? {}), ...patch } } as never;
-  });
+  useApp.getState().updateProfile(patch);
 }
 
 function applyGame(game: unknown) {
-  const patch = pickKeys(game, GAME_KEYS);
+  const patch = pickKeys((game ?? {}) as GameState, GAME_KEYS);
   if (Object.keys(patch).length === 0) return;
-  useApp.setState((s: unknown) => {
-    const st = s as { game?: Record<string, unknown> };
-    return { game: { ...(st.game ?? {}), ...patch } } as never;
-  });
+  useApp.setState((s) => ({ game: { ...s.game, ...patch } }));
 }
 
 function applyProgress(rows: unknown) {
   if (!Array.isArray(rows) || rows.length === 0) return;
-  try {
-    const st = useApp.getState() as {
-      calibrate?: (id: string, prog: number, stab: number) => void;
-    };
-    if (typeof st.calibrate !== "function") return;
-    for (const r of rows as Array<{ topicId?: string; prog?: number; stab?: number }>) {
-      if (r?.topicId) {
-        st.calibrate(r.topicId, Number(r.prog ?? 0), Number(r.stab ?? 0));
-      }
+  const { calibrate } = useApp.getState();
+  for (const r of rows as Array<{ topicId?: string; prog?: number; stab?: number }>) {
+    if (r?.topicId) {
+      calibrate(r.topicId, Number(r.prog ?? 0), Number(r.stab ?? 0));
     }
-  } catch (err) {
-    console.warn("[sync] applyProgress failed:", err);
   }
 }

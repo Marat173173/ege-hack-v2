@@ -1,14 +1,20 @@
 /**
  * POST /api/auth/link-anon
  *
- * Одноразовый мерж: переносит все результаты тренировок из SessionResult,
+ * Одноразовый мерж: переносит результаты тренировок из SessionResult,
  * записанные под anonId, на текущего авторизованного пользователя.
  * Вызывается один раз сразу после успешного входа/регистрации.
  *
  * Body: { anonId: string }
  *
- * Идемпотентен: если userId уже проставлен, обновит только строки,
- * где он null. Повторный вызов ничего не сломает.
+ * Каждый anonId привязывается ровно к одному userId (таблица LinkedAnonId) —
+ * иначе клиент мог прислать чужой anonId и угнать чужую тренировочную
+ * историю. Мержим только SessionResult за последние 24 часа: свежая
+ * анонимка перед регистрацией — это ожидаемый сценарий, а не чужие данные
+ * многолетней давности.
+ *
+ * Идемпотентен: повторный вызов с уже привязанным на этого же юзера
+ * anonId ничего не ломает (просто не находит новых строк).
  */
 
 import { NextResponse } from "next/server";
@@ -16,6 +22,9 @@ import { prisma } from "@/lib/db/prisma";
 import { currentUserId } from "@/lib/db/session";
 
 export const runtime = "nodejs";
+
+const MIN_ANON_ID_LEN = 8;
+const MAX_ANON_ID_LEN = 128;
 
 export async function POST(req: Request) {
   const userId = await currentUserId();
@@ -31,17 +40,30 @@ export async function POST(req: Request) {
   }
 
   const anonId = body.anonId?.trim();
-  if (!anonId) {
+  if (!anonId || anonId.length < MIN_ANON_ID_LEN || anonId.length > MAX_ANON_ID_LEN) {
     return NextResponse.json({ error: "anonId обязателен" }, { status: 400 });
   }
 
-  // UPDATE только по строкам без userId — чтобы повторный мерж
-  // не переписал результаты, которые уже привязаны к чужому аккаунту.
-  const result = await prisma.$executeRaw`
-    UPDATE "SessionResult"
-    SET "userId" = ${userId}
-    WHERE "anonId" = ${anonId} AND "userId" IS NULL
-  `;
+  const existing = await prisma.linkedAnonId.findUnique({ where: { anonId } });
+  if (existing && existing.userId !== userId) {
+    // Не сообщаем, кому принадлежит anonId — просто отказываем.
+    return NextResponse.json({ linked: 0, reason: "already-linked" });
+  }
 
-  return NextResponse.json({ linked: result });
+  const [, updated] = await prisma.$transaction([
+    prisma.linkedAnonId.upsert({
+      where: { anonId },
+      update: {},
+      create: { anonId, userId },
+    }),
+    prisma.$executeRaw`
+      UPDATE "SessionResult"
+      SET "userId" = ${userId}
+      WHERE "anonId" = ${anonId}
+        AND "userId" IS NULL
+        AND "createdAt" >= NOW() - INTERVAL '24 hours'
+    `,
+  ]);
+
+  return NextResponse.json({ linked: updated });
 }

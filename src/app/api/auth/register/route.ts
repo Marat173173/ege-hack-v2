@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db/prisma";
+import { checkRateLimit } from "@/lib/ratelimit";
 
 export async function POST(req: Request) {
+  const rl = await checkRateLimit(req, { identifier: "register", limit: 3, window: "1 h" });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Слишком много запросов" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+    );
+  }
+
   try {
     const { email, password, name } = await req.json();
 

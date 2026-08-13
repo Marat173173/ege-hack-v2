@@ -14,6 +14,7 @@
 import { NextResponse } from "next/server";
 import { searchKnowledge } from "@/lib/rag/search";
 import { answer, type ChatTurn, type MistakeItem } from "@/lib/rag/llm";
+import { checkRateLimit } from "@/lib/ratelimit";
 
 // Этот роут грузит модель эмбеддингов — оставим его на Node runtime,
 // не на Edge (Edge не поддерживает Transformers.js).
@@ -52,6 +53,14 @@ function sanitizeMistakes(raw: unknown): MistakeItem[] {
 }
 
 export async function POST(req: Request) {
+  const rl = await checkRateLimit(req, { identifier: "tutor-ask", limit: 10, window: "1 m" });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Слишком много запросов" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+    );
+  }
+
   try {
     const { question, subject, history, mistakes, mode } = (await req.json()) as {
       question: string;

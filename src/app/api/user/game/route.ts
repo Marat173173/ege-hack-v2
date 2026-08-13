@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { currentUserId } from "@/lib/db/session";
+import { checkRateLimit } from "@/lib/ratelimit";
 
 /** GET /api/user/game — получить GameState. */
 export async function GET() {
@@ -15,6 +16,14 @@ export async function GET() {
 
 /** PATCH /api/user/game — обновить GameState. */
 export async function PATCH(req: Request) {
+  const rl = await checkRateLimit(req, { identifier: "user-game", limit: 30, window: "1 m" });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Слишком много запросов" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+    );
+  }
+
   const userId = await currentUserId();
   if (!userId) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
 

@@ -50,7 +50,7 @@ export interface TutorNudge {
   status: "pending" | "accepted" | "declined";
 }
 
-interface AppState {
+export interface AppState {
   subjectKey: string;
   mode: Mode;
   theme: Theme;
