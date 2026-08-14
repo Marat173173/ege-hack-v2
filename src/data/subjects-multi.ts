@@ -35,7 +35,7 @@ export const SUBJECTS_MULTI: SubjectDef[] = [
     goal: 80,
     maxScore: 100,
     icon: "Scale",
-    status: "soon",
+    status: "live",
     defaultPattern: "grid",
     theme: { baseHue: 210, sat: 68, light: 58, accentRgb: "94 146 214", accent2Rgb: "72 118 188" },
     topics: buildSocialFloors(),
