@@ -61,7 +61,7 @@ export const SUBJECTS_MULTI: SubjectDef[] = [
     goal: 80,
     maxScore: 100,
     icon: "Sigma",
-    status: "soon",
+    status: "live",
     defaultPattern: "grid",
     theme: { baseHue: 148, sat: 60, light: 52, accentRgb: "80 178 128", accent2Rgb: "56 148 106" },
     topics: buildMathFloors(),
