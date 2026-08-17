@@ -249,3 +249,40 @@ model LinkedAnonId {
 
   @@index([userId])
 }
+
+model ExamAttempt {
+  id                    String       @id @default(cuid())
+  userId                String
+  subjectKey            String
+  durationMinutes       Int
+  maxPrimaryScore       Int
+  maxPrimaryScoreTotal  Int
+  variant               Json
+  status                String       @default("in_progress")
+  primaryScore          Int?
+  testScorePart1        Int?
+  forecastMin           Int?
+  forecastExpected      Int?
+  forecastMax           Int?
+  secondsSpent          Int?
+  startedAt             DateTime     @default(now())
+  finalizedAt           DateTime?
+
+  answers               ExamAnswer[]
+
+  @@index([userId, finalizedAt(sort: Desc)])
+  @@index([userId, subjectKey])
+}
+
+model ExamAnswer {
+  id         String       @id @default(cuid())
+  attemptId  String
+  taskNumber Int
+  answer     Int?
+  updatedAt  DateTime     @default(now()) @updatedAt
+
+  attempt    ExamAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, taskNumber])
+  @@index([attemptId])
+}
