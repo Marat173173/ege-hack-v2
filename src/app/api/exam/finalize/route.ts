@@ -23,21 +23,31 @@ import { FIPI_ENGLISH } from "@/data/fipi-codifier-english";
 
 export const runtime = "nodejs";
 
-/** Ищет человекочитаемое название темы по её коду. */
-function resolveTopicTitle(topicId: string): string {
-  // topicId для русского — просто код ("3.7.6"), для остальных — с префиксом ("social-1.3")
+/** Кодификатор конкретного предмета по его subject.key. */
+const CODIFIER_BY_SUBJECT: Record<string, Array<{ code: string; title: string }>> = {
+  russian: FIPI_RU,
+  "social-multi": FIPI_SOCIAL,
+  "history-multi": FIPI_HISTORY,
+  "math-multi": FIPI_MATH,
+  "math-base-multi": FIPI_MATH_BASE,
+  "physics-multi": FIPI_PHYSICS,
+  "literature-multi": FIPI_LITERATURE,
+  "english-multi": FIPI_ENGLISH,
+};
+
+/**
+ * Ищет человекочитаемое название темы по её коду В КОНТЕКСТЕ ПРЕДМЕТА.
+ * Одинаковые коды типа "1.1" есть в разных предметах — subjectKey защищает от путаницы.
+ */
+function resolveTopicTitle(topicId: string, subjectKey: string): string {
+  const codifier = CODIFIER_BY_SUBJECT[subjectKey];
+  if (!codifier) return topicId;
+
+  // topicId для русского — просто "3.7.6", для остальных — "social-1.3" и т.п.
   const withoutPrefix = topicId.includes("-") ? topicId.replace(/^[a-z-]+?-/, "") : topicId;
 
-  const allCodifiers = [
-    FIPI_RU, FIPI_SOCIAL, FIPI_HISTORY, FIPI_MATH,
-    FIPI_MATH_BASE, FIPI_PHYSICS, FIPI_LITERATURE, FIPI_ENGLISH,
-  ];
-
-  for (const codifier of allCodifiers) {
-    const found = codifier.find((t) => t.code === withoutPrefix);
-    if (found) return found.title;
-  }
-  return topicId; // fallback
+  const found = codifier.find((t) => t.code === withoutPrefix);
+  return found?.title ?? topicId;
 }
 
 export async function POST(req: Request) {
@@ -131,7 +141,7 @@ export async function POST(req: Request) {
     .filter(([_, s]) => s.total > 0 && s.correct / s.total < 0.5)
     .map(([topicId, s]) => ({
       topicId,
-      title: resolveTopicTitle(topicId),
+      title: resolveTopicTitle(topicId, attempt.subjectKey),
       ratio: s.correct / s.total,
     }));
 
