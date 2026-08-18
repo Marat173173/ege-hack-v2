@@ -76,7 +76,7 @@ export function ExamTimer({
 
   return (
     <div
-      className="flex h-10 items-center gap-1.5 rounded-xl border px-3 font-mono text-[14px] font-bold tabular-nums"
+      className="flex h-11 items-center gap-1.5 rounded-xl border px-2.5 font-mono text-[13px] font-bold tabular-nums sm:px-3 sm:text-[14px]"
       style={{
         color,
         borderColor: `${color}4d`,

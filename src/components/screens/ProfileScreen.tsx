@@ -9,6 +9,7 @@ import {
   UserCircle2, LogIn, LogOut, CloudOff, Cloud, Users, type LucideIcon,
 } from "lucide-react";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { ExamHistoryStrip } from "@/components/exam/ExamHistoryStrip";
 import { useApp } from "@/lib/store";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
 import { XpRing } from "@/components/ui/xp-ring";
@@ -245,6 +246,11 @@ export function ProfileScreen() {
             </motion.div>
           )}
         </LiquidGlass>
+
+        {/* ——— пробники ЕГЭ ———
+            Самодостаточный виджет: CTA-баннер без попыток, компактный список
+            последних 3 с трендом — если есть. Гостям не рендерится сам. */}
+        <ExamHistoryStrip />
 
         {/* ——— аккаунт ———
             Единственное место в приложении, где живут вход и регистрация.

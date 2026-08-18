@@ -173,17 +173,17 @@ export function ExamRunner({ attemptId }: { attemptId: string }) {
     <div className="min-h-[100dvh] bg-[rgb(var(--bg-0))] pb-8">
       {/* Шапка */}
       <header className="sticky top-0 z-10 border-b border-white/5 bg-[rgb(var(--bg-0))]/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-2 px-4 py-3">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-2 px-3 py-3 sm:px-4">
           <div className="min-w-0">
             <div className="truncate text-[13px] font-semibold text-[rgb(var(--hi))]">
               {state.displayName}
             </div>
-            <div className="text-[11px] text-[rgb(var(--lo))]">
+            <div className="truncate text-[11px] text-[rgb(var(--lo))]">
               {answeredCount} из {state.tasks.length} отвечено
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <ExamTimer
               startedAt={state.startedAt}
               durationMinutes={state.durationMinutes}
@@ -196,22 +196,23 @@ export function ExamRunner({ attemptId }: { attemptId: string }) {
               disabled={pauseBusy}
               aria-label={isPaused ? "Продолжить" : "Пауза"}
               title={isPaused ? "Продолжить" : "Пауза"}
-              className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-[rgb(var(--mid))] transition hover:text-[rgb(var(--hi))] disabled:opacity-50"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/5 text-[rgb(var(--mid))] transition hover:text-[rgb(var(--hi))] disabled:opacity-50"
             >
               {isPaused ? <Play size={16} /> : <Pause size={16} />}
             </button>
             <button
               onClick={() => setConfirmSubmit(true)}
-              className="flex h-10 items-center gap-1.5 rounded-xl bg-[rgb(var(--accent))] px-3 text-[12.5px] font-semibold text-[rgb(var(--bg-0))] transition hover:brightness-110"
+              aria-label="Сдать"
+              className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-[rgb(var(--accent))] px-2.5 text-[12.5px] font-semibold text-[rgb(var(--bg-0))] transition hover:brightness-110 sm:px-3"
             >
-              <Send size={14} /> Сдать
+              <Send size={14} /> <span className="hidden sm:inline">Сдать</span>
             </button>
           </div>
         </div>
       </header>
 
       {isPaused ? (
-        <div className="mx-auto mt-16 max-w-md px-4 text-center">
+        <div className="mx-auto mt-16 max-w-md px-3 text-center sm:px-4">
           <Pause className="mx-auto mb-3 h-8 w-8 text-[rgb(var(--accent))]" />
           <h2 className="mb-2 text-[16px] font-semibold text-[rgb(var(--hi))]">
             Пробник на паузе
@@ -222,14 +223,14 @@ export function ExamRunner({ attemptId }: { attemptId: string }) {
           <button
             onClick={togglePause}
             disabled={pauseBusy}
-            className="mx-auto flex items-center gap-2 rounded-xl bg-[rgb(var(--accent))] px-5 py-2.5 text-[13px] font-semibold text-[rgb(var(--bg-0))] transition hover:brightness-110 disabled:opacity-50"
+            className="mx-auto flex min-h-[44px] items-center gap-2 rounded-xl bg-[rgb(var(--accent))] px-5 py-2.5 text-[13px] font-semibold text-[rgb(var(--bg-0))] transition hover:brightness-110 disabled:opacity-50"
           >
             {pauseBusy ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
             Продолжить
           </button>
         </div>
       ) : (
-        <div className="mx-auto max-w-4xl px-4 pt-4">
+        <div className="mx-auto max-w-4xl px-3 pt-4 sm:px-4">
           {/* Навигация по заданиям */}
           <div className="mb-4">
             <ExamTaskNav
@@ -258,9 +259,9 @@ export function ExamRunner({ attemptId }: { attemptId: string }) {
                   </span>
                 </div>
                 {task.description && (
-                  <div className="mb-3 text-[12px] text-[rgb(var(--mid))]">{task.description}</div>
+                  <div className="mb-3 break-words text-[12px] text-[rgb(var(--mid))]">{task.description}</div>
                 )}
-                <p className="mb-5 whitespace-pre-wrap text-[15px] leading-relaxed text-[rgb(var(--hi))]">
+                <p className="mb-5 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-[rgb(var(--hi))]">
                   {task.question}
                 </p>
 
@@ -271,7 +272,7 @@ export function ExamRunner({ attemptId }: { attemptId: string }) {
                       <button
                         key={idx}
                         onClick={() => selectAnswer(task.taskNumber, idx)}
-                        className="flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left text-[13.5px] transition"
+                        className="flex min-h-[44px] w-full items-start gap-3 rounded-xl border px-4 py-3 text-left text-[13.5px] transition"
                         style={{
                           borderColor: selected ? "rgb(var(--accent))" : "rgba(255,255,255,0.1)",
                           background: selected ? "rgb(var(--accent) / 0.12)" : "rgba(255,255,255,0.02)",
@@ -287,7 +288,7 @@ export function ExamRunner({ attemptId }: { attemptId: string }) {
                         >
                           {String.fromCharCode(65 + idx)}
                         </span>
-                        {option}
+                        <span className="break-words">{option}</span>
                       </button>
                     );
                   })}
@@ -301,14 +302,14 @@ export function ExamRunner({ attemptId }: { attemptId: string }) {
             <button
               onClick={() => setCurrentTask((n) => Math.max(1, n - 1))}
               disabled={currentTask <= 1}
-              className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-[13px] text-[rgb(var(--mid))] transition hover:text-[rgb(var(--hi))] disabled:opacity-30"
+              className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-[13px] text-[rgb(var(--mid))] transition hover:text-[rgb(var(--hi))] disabled:opacity-30"
             >
               <ChevronLeft size={14} /> Назад
             </button>
             <button
               onClick={() => setCurrentTask((n) => Math.min(state.tasks.length, n + 1))}
               disabled={currentTask >= state.tasks.length}
-              className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-[13px] text-[rgb(var(--mid))] transition hover:text-[rgb(var(--hi))] disabled:opacity-30"
+              className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-[13px] text-[rgb(var(--mid))] transition hover:text-[rgb(var(--hi))] disabled:opacity-30"
             >
               Далее <ChevronRight size={14} />
             </button>
@@ -344,14 +345,14 @@ export function ExamRunner({ attemptId }: { attemptId: string }) {
                 <button
                   onClick={() => setConfirmSubmit(false)}
                   disabled={finalizing}
-                  className="flex-1 rounded-xl border border-white/10 px-4 py-2.5 text-[13px] text-[rgb(var(--mid))] transition hover:text-[rgb(var(--hi))] disabled:opacity-50"
+                  className="min-h-[44px] flex-1 rounded-xl border border-white/10 px-4 py-2.5 text-[13px] text-[rgb(var(--mid))] transition hover:text-[rgb(var(--hi))] disabled:opacity-50"
                 >
                   Отмена
                 </button>
                 <button
                   onClick={finalize}
                   disabled={finalizing}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[rgb(var(--accent))] px-4 py-2.5 text-[13px] font-semibold text-[rgb(var(--bg-0))] transition hover:brightness-110 disabled:opacity-50"
+                  className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-[rgb(var(--accent))] px-4 py-2.5 text-[13px] font-semibold text-[rgb(var(--bg-0))] transition hover:brightness-110 disabled:opacity-50"
                 >
                   {finalizing ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
                   Сдать

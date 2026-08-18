@@ -24,7 +24,7 @@ export function ExamTaskNav({
   );
 
   return (
-    <div className="flex gap-1.5 overflow-x-auto pb-1 sm:grid sm:grid-cols-10 sm:overflow-visible sm:pb-0 md:grid-cols-13 lg:grid-cols-16">
+    <div className="-mx-3 flex snap-x snap-mandatory gap-1.5 overflow-x-auto px-3 pb-1 sm:mx-0 sm:grid sm:grid-cols-10 sm:overflow-visible sm:px-0 sm:pb-0 md:grid-cols-13 lg:grid-cols-16">
       {numbers.map((n) => {
         const answered = answeredNumbers.has(n);
         const active = n === currentTask;
@@ -35,7 +35,7 @@ export function ExamTaskNav({
             aria-label={`Задание ${n}${answered ? ", отвечено" : ""}`}
             aria-current={active ? "true" : undefined}
             className={cn(
-              "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg font-mono text-[12px] font-semibold transition-colors",
+              "flex h-11 w-11 shrink-0 snap-start items-center justify-center rounded-lg font-mono text-[12px] font-semibold transition-colors sm:h-9 sm:w-9",
               answered
                 ? "border border-yellow-500/50 bg-yellow-500/30 text-[rgb(var(--hi))]"
                 : "border border-white/10 bg-white/5 text-[rgb(var(--mid))]",

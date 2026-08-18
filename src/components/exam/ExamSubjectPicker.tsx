@@ -128,10 +128,10 @@ export function ExamSubjectPicker() {
   return (
     <div className="min-h-[100dvh] bg-[rgb(var(--bg-0))] pb-16">
       {/* Шапка */}
-      <header className="flex items-center justify-between border-b border-white/5 px-4 py-3 sm:px-6">
+      <header className="flex items-center justify-between border-b border-white/5 px-3 py-3 sm:px-6">
         <a
           href="/"
-          className="flex items-center gap-2 text-sm text-[rgb(var(--mid))] transition hover:text-[rgb(var(--hi))]"
+          className="flex min-h-[44px] items-center gap-2 text-sm text-[rgb(var(--mid))] transition hover:text-[rgb(var(--hi))]"
         >
           <X className="h-4 w-4" /> На главную
         </a>
@@ -143,7 +143,7 @@ export function ExamSubjectPicker() {
       </header>
 
       {/* Интро */}
-      <div className="mx-auto max-w-3xl px-4 pt-8 sm:pt-10">
+      <div className="mx-auto max-w-3xl px-3 pt-8 sm:px-6 sm:pt-10">
         <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="mb-2 font-serif text-2xl text-[rgb(var(--hi))] sm:text-3xl">
             Пробник ЕГЭ
@@ -263,7 +263,7 @@ function SubjectCard({
         </div>
       </div>
 
-      <p className="mb-4 text-[12.5px] leading-snug text-[rgb(var(--mid))]">
+      <p className="mb-4 break-words text-[12.5px] leading-snug text-[rgb(var(--mid))]">
         {subject.description}
       </p>
 
@@ -278,7 +278,7 @@ function SubjectCard({
       <button
         onClick={onStart}
         disabled={disabled || starting}
-        className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[rgb(var(--bg-0))] transition-transform hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
+        className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[rgb(var(--bg-0))] transition-transform hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
         style={{ background: subject.hue }}
       >
         {starting ? (

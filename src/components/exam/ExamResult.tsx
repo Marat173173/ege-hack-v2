@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Loader2,
@@ -9,10 +8,10 @@ import {
   ChevronDown,
   Check,
   X as XIcon,
-  RotateCcw,
   Home,
   TrendingUp,
 } from "lucide-react";
+import { ExamResultActions } from "./ExamResultActions";
 
 type TaskDetail = {
   taskNumber: number;
@@ -41,11 +40,9 @@ type ResultData = {
 };
 
 export function ExamResult({ attemptId }: { attemptId: string }) {
-  const router = useRouter();
   const [data, setData] = React.useState<ResultData | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [openTask, setOpenTask] = React.useState<number | null>(null);
-  const [restarting, setRestarting] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -81,25 +78,6 @@ export function ExamResult({ attemptId }: { attemptId: string }) {
     };
   }, [attemptId]);
 
-  async function restart() {
-    if (!data || restarting) return;
-    setRestarting(true);
-    try {
-      const res = await fetch("/api/exam/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ subjectKey: data.subjectKey }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Не удалось начать пробник");
-      router.push(`/exam/${json.attemptId}`);
-    } catch (e) {
-      setError((e as Error).message);
-      setRestarting(false);
-    }
-  }
-
   if (error) {
     return (
       <div className="grid min-h-[100dvh] place-items-center bg-[rgb(var(--bg-0))] px-4 text-center">
@@ -127,18 +105,18 @@ export function ExamResult({ attemptId }: { attemptId: string }) {
 
   return (
     <div className="min-h-[100dvh] bg-[rgb(var(--bg-0))] pb-16">
-      <header className="flex items-center justify-between border-b border-white/5 px-4 py-3 sm:px-6">
+      <header className="flex items-center justify-between border-b border-white/5 px-3 py-3 sm:px-6">
         <a
           href="/exam"
-          className="flex items-center gap-2 text-sm text-[rgb(var(--mid))] transition hover:text-[rgb(var(--hi))]"
+          className="flex min-h-[44px] items-center gap-2 text-sm text-[rgb(var(--mid))] transition hover:text-[rgb(var(--hi))]"
         >
           <Home className="h-4 w-4" /> К пробникам
         </a>
-        <div className="text-[13px] font-medium text-[rgb(var(--hi))]">{data.displayName}</div>
+        <div className="truncate text-[13px] font-medium text-[rgb(var(--hi))]">{data.displayName}</div>
         <div className="w-24" />
       </header>
 
-      <div className="mx-auto max-w-3xl px-4 pt-8">
+      <div className="mx-auto max-w-3xl px-3 pt-8 sm:px-6">
         {/* Крупный балл */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
@@ -233,7 +211,7 @@ export function ExamResult({ attemptId }: { attemptId: string }) {
 
                 {openTask === d.taskNumber && (
                   <div className="border-t border-white/5 px-4 py-3 text-[13px]">
-                    <p className="mb-3 whitespace-pre-wrap text-[rgb(var(--mid))]">{d.question}</p>
+                    <p className="mb-3 whitespace-pre-wrap break-words text-[rgb(var(--mid))]">{d.question}</p>
                     <div className="mb-3 space-y-1.5">
                       {d.options.map((opt, idx) => {
                         const isCorrectOpt = idx === d.correctAnswer;
@@ -241,7 +219,7 @@ export function ExamResult({ attemptId }: { attemptId: string }) {
                         return (
                           <div
                             key={idx}
-                            className="rounded-lg border px-3 py-2 text-[12.5px]"
+                            className="break-words rounded-lg border px-3 py-2 text-[12.5px]"
                             style={{
                               borderColor: isCorrectOpt
                                 ? "rgba(91,227,176,0.5)"
@@ -280,14 +258,7 @@ export function ExamResult({ attemptId }: { attemptId: string }) {
           </div>
         </div>
 
-        <button
-          onClick={restart}
-          disabled={restarting}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[rgb(var(--accent))] px-4 py-3 text-[13.5px] font-semibold text-[rgb(var(--bg-0))] transition hover:brightness-110 disabled:opacity-50"
-        >
-          {restarting ? <Loader2 size={15} className="animate-spin" /> : <RotateCcw size={15} />}
-          Пройти ещё раз
-        </button>
+        <ExamResultActions attemptId={attemptId} subjectKey={data.subjectKey} />
       </div>
     </div>
   );
