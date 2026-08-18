@@ -12,6 +12,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { ExamResultActions } from "./ExamResultActions";
+import { MathText } from "@/components/MathText";
 
 type TaskDetail = {
   taskNumber: number;
@@ -35,7 +36,7 @@ type ResultData = {
   testScorePart1: number;
   forecast: { min: number; expected: number; max: number };
   secondsSpent: number;
-  weakTopics: Array<{ topicId: string; ratio: number }>;
+  weakTopics: Array<{ topicId: string; title?: string; ratio: number }>;
   details: TaskDetail[];
 };
 
@@ -165,7 +166,7 @@ export function ExamResult({ attemptId }: { attemptId: string }) {
                   key={t.topicId}
                   className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 font-mono text-[11px] text-red-300"
                 >
-                  {t.topicId} · {Math.round(t.ratio * 100)}%
+                  {t.title || t.topicId} · {Math.round(t.ratio * 100)}%
                 </span>
               ))}
             </div>
@@ -211,7 +212,7 @@ export function ExamResult({ attemptId }: { attemptId: string }) {
 
                 {openTask === d.taskNumber && (
                   <div className="border-t border-white/5 px-4 py-3 text-[13px]">
-                    <p className="mb-3 whitespace-pre-wrap break-words text-[rgb(var(--mid))]">{d.question}</p>
+                    <MathText as="p" className="mb-3 whitespace-pre-wrap break-words text-[rgb(var(--mid))]">{d.question}</MathText>
                     <div className="mb-3 space-y-1.5">
                       {d.options.map((opt, idx) => {
                         const isCorrectOpt = idx === d.correctAnswer;
@@ -234,7 +235,7 @@ export function ExamResult({ attemptId }: { attemptId: string }) {
                               color: isCorrectOpt || isUserOpt ? "rgb(var(--hi))" : "rgb(var(--mid))",
                             }}
                           >
-                            {String.fromCharCode(65 + idx)}. {opt}
+                            {String.fromCharCode(65 + idx)}. <MathText as="span">{opt}</MathText>
                             {isCorrectOpt && <span className="ml-2 text-[10px] text-[#5BE3B0]">верно</span>}
                             {isUserOpt && !isCorrectOpt && (
                               <span className="ml-2 text-[10px] text-[#F26B5B]">твой ответ</span>
@@ -247,9 +248,9 @@ export function ExamResult({ attemptId }: { attemptId: string }) {
                       )}
                     </div>
                     {d.explanation && (
-                      <div className="rounded-lg bg-white/[0.03] px-3 py-2 text-[12px] leading-relaxed text-[rgb(var(--mid))]">
+                      <MathText as="div" className="rounded-lg bg-white/[0.03] px-3 py-2 text-[12px] leading-relaxed text-[rgb(var(--mid))]">
                         {d.explanation}
-                      </div>
+                      </MathText>
                     )}
                   </div>
                 )}

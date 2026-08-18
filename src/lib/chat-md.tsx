@@ -1,4 +1,5 @@
 import * as React from "react";
+import { MathText } from "@/components/MathText";
 
 /**
  * Мини-рендер маркдауна для пузырей чата: **жирный**, маркированные и
@@ -14,15 +15,27 @@ function inline(text: string, keyBase: string): React.ReactNode[] {
   let m: RegExpExecArray | null;
   let i = 0;
   while ((m = re.exec(text))) {
-    if (m.index > last) parts.push(text.slice(last, m.index));
+    if (m.index > last) {
+      parts.push(
+        <MathText key={`${keyBase}-t${i}`} as="span">
+          {text.slice(last, m.index)}
+        </MathText>
+      );
+    }
     parts.push(
       <b key={`${keyBase}-b${i++}`} className="font-semibold text-hi">
-        {m[1]}
+        <MathText as="span">{m[1]}</MathText>
       </b>
     );
     last = m.index + m[0].length;
   }
-  if (last < text.length) parts.push(text.slice(last));
+  if (last < text.length) {
+    parts.push(
+      <MathText key={`${keyBase}-tail`} as="span">
+        {text.slice(last)}
+      </MathText>
+    );
+  }
   return parts;
 }
 

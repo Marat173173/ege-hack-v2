@@ -12,8 +12,33 @@ import { prisma } from "@/lib/db/prisma";
 import { currentUserId } from "@/lib/db/session";
 import { primaryToTest, forecastTotalScore } from "@/lib/exam/score-tables";
 import { getExamSpec } from "@/data/exam-specs";
+import { FIPI_RU } from "@/data/fipi-codifier-ru";
+import { FIPI_SOCIAL } from "@/data/fipi-codifier-social";
+import { FIPI_HISTORY } from "@/data/fipi-codifier-history";
+import { FIPI_MATH } from "@/data/fipi-codifier-math";
+import { FIPI_MATH_BASE } from "@/data/fipi-codifier-math-base";
+import { FIPI_PHYSICS } from "@/data/fipi-codifier-physics";
+import { FIPI_LITERATURE } from "@/data/fipi-codifier-literature";
+import { FIPI_ENGLISH } from "@/data/fipi-codifier-english";
 
 export const runtime = "nodejs";
+
+/** Ищет человекочитаемое название темы по её коду. */
+function resolveTopicTitle(topicId: string): string {
+  // topicId для русского — просто код ("3.7.6"), для остальных — с префиксом ("social-1.3")
+  const withoutPrefix = topicId.includes("-") ? topicId.replace(/^[a-z-]+?-/, "") : topicId;
+
+  const allCodifiers = [
+    FIPI_RU, FIPI_SOCIAL, FIPI_HISTORY, FIPI_MATH,
+    FIPI_MATH_BASE, FIPI_PHYSICS, FIPI_LITERATURE, FIPI_ENGLISH,
+  ];
+
+  for (const codifier of allCodifiers) {
+    const found = codifier.find((t) => t.code === withoutPrefix);
+    if (found) return found.title;
+  }
+  return topicId; // fallback
+}
 
 export async function POST(req: Request) {
   const userId = await currentUserId();
@@ -104,7 +129,11 @@ export async function POST(req: Request) {
   // Определяем слабые темы (меньше 50% правильных)
   const weakTopicsList = Array.from(weakTopics.entries())
     .filter(([_, s]) => s.total > 0 && s.correct / s.total < 0.5)
-    .map(([topicId, s]) => ({ topicId, ratio: s.correct / s.total }));
+    .map(([topicId, s]) => ({
+      topicId,
+      title: resolveTopicTitle(topicId),
+      ratio: s.correct / s.total,
+    }));
 
   const finalizedAt = new Date();
   const secondsSpent = Math.round((finalizedAt.getTime() - attempt.startedAt.getTime()) / 1000);

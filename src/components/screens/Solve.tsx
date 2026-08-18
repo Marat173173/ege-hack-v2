@@ -9,6 +9,7 @@ import { XP, comboMultiplier } from "@/lib/gamification";
 import { computeScore, type ScoreResult } from "@/lib/score-model";
 import { playCorrect, playWrong, playCombo } from "@/lib/sound";
 import { buzz, HAPTIC } from "@/lib/haptics";
+import { MathText } from "@/components/MathText";
 import { useToast } from "./Toast";
 import { ResultsScreen, type MistakeItem } from "./ResultsScreen";
 
@@ -391,7 +392,7 @@ export function Solve() {
               <div className="mb-1 font-mono text-[11px] uppercase tracking-wide text-lo">
                 Задание {idx + 1} / {tasksList.length}
               </div>
-              <h2 className="m-0 mb-6 text-xl font-medium leading-snug text-hi">{task.q}</h2>
+              <MathText as="div" className="m-0 mb-6 text-xl font-medium leading-snug text-hi">{task.q}</MathText>
 
               <div className="space-y-2.5">
                 {task.options.map((o, i) => {
@@ -431,7 +432,7 @@ export function Solve() {
                         boxShadow: isCorrect ? "0 0 24px -6px rgba(91,227,176,.5)" : "none",
                       }}
                     >
-                      <span>{o}</span>
+                      <MathText as="span">{o}</MathText>
                       {isCorrect && <Check size={18} className="text-stable" />}
                       {isWrong && <X size={18} className="text-danger" />}
 
@@ -475,7 +476,7 @@ export function Solve() {
                         <div className="text-[13px] font-semibold text-hi">
                           {correct ? "Верно!" : "Не совсем — вот разбор:"}
                         </div>
-                        <p className="m-0 mt-1 text-[13px] leading-snug text-mid">{task.hint}</p>
+                        <MathText as="p" className="m-0 mt-1 text-[13px] leading-snug text-mid">{task.hint}</MathText>
                       </div>
                     </div>
                     <button

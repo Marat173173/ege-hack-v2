@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { ExamTimer } from "./ExamTimer";
 import { ExamTaskNav } from "./ExamTaskNav";
+import { MathText } from "@/components/MathText";
 
 type ExamTask = {
   taskNumber: number;
@@ -259,11 +260,11 @@ export function ExamRunner({ attemptId }: { attemptId: string }) {
                   </span>
                 </div>
                 {task.description && (
-                  <div className="mb-3 break-words text-[12px] text-[rgb(var(--mid))]">{task.description}</div>
+                  <MathText as="div" className="mb-3 break-words text-[12px] text-[rgb(var(--mid))]">{task.description}</MathText>
                 )}
-                <p className="mb-5 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-[rgb(var(--hi))]">
+                <MathText as="p" className="mb-5 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-[rgb(var(--hi))]">
                   {task.question}
-                </p>
+                </MathText>
 
                 <div className="space-y-2">
                   {task.options.map((option, idx) => {
@@ -288,7 +289,7 @@ export function ExamRunner({ attemptId }: { attemptId: string }) {
                         >
                           {String.fromCharCode(65 + idx)}
                         </span>
-                        <span className="break-words">{option}</span>
+                        <MathText as="span" className="break-words">{option}</MathText>
                       </button>
                     );
                   })}

@@ -11,6 +11,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
+import { MathText } from "@/components/MathText";
 import type { Floor } from "@/data/types";
 
 type Material = { id: string; kind: string; title: string; text: string };
@@ -157,8 +158,8 @@ export function LessonModal({
                         <div className="lm-material-h" style={{ color: meta.color }}>
                           <meta.Icon size={13} /> {meta.label}
                         </div>
-                        <h4 className="lm-material-title">{m.title}</h4>
-                        <p className="lm-material-body">{m.text}</p>
+                        <MathText as="div" className="lm-material-title">{m.title}</MathText>
+                        <MathText as="div" className="lm-material-body">{m.text}</MathText>
                       </div>
                     );
                   })}
