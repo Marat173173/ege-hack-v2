@@ -10,7 +10,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 
 export const runtime = "nodejs";
-export const revalidate = 300; // 5 минут кеша
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const texts = await prisma.essayText.findMany({

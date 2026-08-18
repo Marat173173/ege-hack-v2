@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 
 export const runtime = "nodejs";
-export const revalidate = 3600; // 1 час кеша — тексты не меняются
+export const dynamic = "force-dynamic";
 
 export async function GET(
   _req: Request,
