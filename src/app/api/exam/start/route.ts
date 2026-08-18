@@ -83,6 +83,8 @@ export async function POST(req: Request) {
       durationMinutes: spec.durationMinutes,
       maxPrimaryScore: spec.maxPrimaryScorePart1,
       startedAt: attempt.startedAt.toISOString(),
+      pausedAt: null,
+      pausedMillis: 0,
       tasks: clientTasks,
     });
   } catch (err) {

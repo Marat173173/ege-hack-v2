@@ -267,6 +267,8 @@ model ExamAttempt {
   secondsSpent          Int?
   startedAt             DateTime     @default(now())
   finalizedAt           DateTime?
+  pausedAt              DateTime?
+  pausedMillis          Int          @default(0)
 
   answers               ExamAnswer[]
 
