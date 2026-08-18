@@ -288,3 +288,36 @@ model ExamAnswer {
   @@unique([attemptId, taskNumber])
   @@index([attemptId])
 }
+
+model EssayText {
+  id          String   @id @default(cuid())
+  title       String
+  authorHint  String?
+  body        String   @db.Text
+  problems    Json
+  difficulty  Int      @default(2)
+  createdAt   DateTime @default(now())
+
+  attempts    EssayAttempt[]
+
+  @@index([difficulty])
+}
+
+model EssayAttempt {
+  id          String    @id @default(cuid())
+  userId      String
+  textId      String
+  content     String    @db.Text
+  wordCount   Int
+  status      String    @default("reviewing")
+  review      Json?
+  totalScore  Int?
+  maxScore    Int       @default(25)
+  createdAt   DateTime  @default(now())
+  reviewedAt  DateTime?
+
+  text        EssayText @relation(fields: [textId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([textId])
+}
