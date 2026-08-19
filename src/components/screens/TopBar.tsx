@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { Flame, CalendarClock, MessageCircle, Building2, Footprints } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ExamButton } from "@/components/exam/ExamButton";
+import { EssayButton } from "@/components/essay/EssayButton";
 import { XpRing } from "@/components/ui/xp-ring";
 import { SubjectBubbles } from "./SubjectBubbles";
 import { useApp } from "@/lib/store";
@@ -217,6 +218,7 @@ export function TopBar() {
             </button>
 
             <ExamButton />
+            <EssayButton />
             <ThemeToggle />
           </div>
         </div>

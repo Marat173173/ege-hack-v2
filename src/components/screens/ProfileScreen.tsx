@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { ExamHistoryStrip } from "@/components/exam/ExamHistoryStrip";
+import { EssayHistoryStrip } from "@/components/essay/EssayHistoryStrip";
 import { useApp } from "@/lib/store";
 import { LiquidGlass } from "@/components/ui/liquid-glass";
 import { XpRing } from "@/components/ui/xp-ring";
@@ -251,6 +252,7 @@ export function ProfileScreen() {
             Самодостаточный виджет: CTA-баннер без попыток, компактный список
             последних 3 с трендом — если есть. Гостям не рендерится сам. */}
         <ExamHistoryStrip />
+        <EssayHistoryStrip />
 
         {/* ——— аккаунт ———
             Единственное место в приложении, где живут вход и регистрация.

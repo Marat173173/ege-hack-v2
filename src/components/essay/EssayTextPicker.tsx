@@ -143,7 +143,7 @@ export function EssayTextPicker() {
                         : "черновик"}
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="shrink-0 text-right">
                     <div className="font-mono text-sm text-[rgb(var(--hi))]">
                       {a.totalScore ?? "?"}
                       <span className="text-[rgb(var(--lo))]">/{a.maxScore}</span>
@@ -174,12 +174,12 @@ function TextCard({ text, index }: { text: EssayTextMeta; index: number }) {
           <FileText size={16} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="mb-1 flex items-baseline gap-2">
-            <span className="text-[14.5px] font-semibold text-[rgb(var(--hi))]">
+          <div className="mb-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span className="break-words text-[14.5px] font-semibold text-[rgb(var(--hi))]">
               {text.title}
             </span>
             {text.authorHint && (
-              <span className="text-[10.5px] italic text-[rgb(var(--lo))]">
+              <span className="break-words text-[10.5px] italic text-[rgb(var(--lo))]">
                 · {text.authorHint}
               </span>
             )}
@@ -187,7 +187,7 @@ function TextCard({ text, index }: { text: EssayTextMeta; index: number }) {
           {text.problems.length > 0 && (
             <div className="mt-1 space-y-0.5">
               {text.problems.slice(0, 2).map((p, i) => (
-                <div key={i} className="line-clamp-1 text-[11.5px] text-[rgb(var(--mid))]">
+                <div key={i} className="line-clamp-1 break-words text-[11.5px] text-[rgb(var(--mid))]">
                   · {p}
                 </div>
               ))}

@@ -227,7 +227,7 @@ export function EssayComposer({ textId }: Props) {
 
         {/* Кнопка отправки */}
         <div className="fixed bottom-0 left-0 right-0 z-10 border-t border-white/5 bg-[rgb(var(--bg-0))]/95 backdrop-blur">
-          <div className="mx-auto max-w-3xl px-3 py-3 sm:px-6 sm:py-4">
+          <div className="mx-auto max-w-3xl px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-4 sm:pb-[max(1rem,env(safe-area-inset-bottom))]">
             {error && (
               <div className="mb-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12.5px] text-red-300">
                 {error}
