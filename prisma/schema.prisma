@@ -270,7 +270,18 @@ model ExamAttempt {
   pausedAt              DateTime?
   pausedMillis          Int          @default(0)
 
+  // Полный ЕГЭ (русский)
+  phase                 String       @default("tests") // "tests" | "essay" | "finished"
+  essayTextId           String?
+  essayContent          String?      @db.Text
+  essayReview            Json?
+  essayScore             Int?
+  overtimeSeconds         Int?
+  factualScore            Int?
+  conditionalScore        Int?
+
   answers               ExamAnswer[]
+  essayText             EssayText?   @relation(fields: [essayTextId], references: [id], onDelete: SetNull)
 
   @@index([userId, finalizedAt(sort: Desc)])
   @@index([userId, subjectKey])
@@ -282,6 +293,7 @@ model ExamAnswer {
   taskNumber Int
   answer     Int?
   updatedAt  DateTime     @default(now()) @updatedAt
+  elapsedSecondsAtAnswer Int?
 
   attempt    ExamAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
 
@@ -299,6 +311,7 @@ model EssayText {
   createdAt   DateTime @default(now())
 
   attempts    EssayAttempt[]
+  examAttempts ExamAttempt[]
 
   @@index([difficulty])
 }

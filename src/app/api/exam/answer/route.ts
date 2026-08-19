@@ -1,9 +1,9 @@
 /**
  * POST /api/exam/answer
- * Body: { attemptId, taskNumber, answer } (answer — индекс варианта 0-3, или null для «пропущено»)
+ * Body: { attemptId, taskNumber, answer, elapsedSecondsAtAnswer }
  *
- * Сохраняет ответ. До финализации ученик может менять ответы сколько угодно.
- * Правильность НЕ возвращаем — покажем только после финализации.
+ * Сохраняет ответ + время (от старта, без пауз), когда он был дан.
+ * Время нужно для «factual score» — отделить ответы ДО звонка от ПОСЛЕ.
  */
 
 import { NextResponse } from "next/server";
@@ -11,15 +11,23 @@ import { prisma } from "@/lib/db/prisma";
 import { currentUserId } from "@/lib/db/session";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   const userId = await currentUserId();
   if (!userId) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
 
-  let body: { attemptId?: string; taskNumber?: number; answer?: number | null };
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "невалидный JSON" }, { status: 400 }); }
+  let body: {
+    attemptId?: string;
+    taskNumber?: number;
+    answer?: number | null;
+    elapsedSecondsAtAnswer?: number;
+  };
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: "невалидный JSON" }, { status: 400 });
+  }
 
-  const { attemptId, taskNumber, answer } = body;
+  const { attemptId, taskNumber, answer, elapsedSecondsAtAnswer } = body;
   if (!attemptId || typeof taskNumber !== "number") {
     return NextResponse.json({ error: "attemptId и taskNumber обязательны" }, { status: 400 });
   }
@@ -27,7 +35,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "answer должен быть 0-3 или null" }, { status: 400 });
   }
 
-  // Проверяем, что попытка принадлежит юзеру и ещё активна
   const attempt = await prisma.examAttempt.findUnique({ where: { id: attemptId } });
   if (!attempt || attempt.userId !== userId) {
     return NextResponse.json({ error: "Попытка не найдена" }, { status: 404 });
@@ -36,11 +43,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Попытка уже завершена" }, { status: 400 });
   }
 
-  // upsert ответа
   await prisma.examAnswer.upsert({
     where: { attemptId_taskNumber: { attemptId, taskNumber } },
-    create: { attemptId, taskNumber, answer },
-    update: { answer, updatedAt: new Date() },
+    create: {
+      attemptId,
+      taskNumber,
+      answer,
+      elapsedSecondsAtAnswer:
+        typeof elapsedSecondsAtAnswer === "number" ? Math.round(elapsedSecondsAtAnswer) : null,
+    },
+    update: {
+      answer,
+      elapsedSecondsAtAnswer:
+        typeof elapsedSecondsAtAnswer === "number" ? Math.round(elapsedSecondsAtAnswer) : undefined,
+      updatedAt: new Date(),
+    },
   });
 
   return NextResponse.json({ ok: true });

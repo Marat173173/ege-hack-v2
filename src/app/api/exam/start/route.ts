@@ -2,10 +2,8 @@
  * POST /api/exam/start
  * Body: { subjectKey: "russian" | "social-multi" | "math-multi" }
  *
- * Создаёт ExamAttempt, генерирует вариант, сохраняет taskDbId в БД,
- * возвращает клиенту задания БЕЗ правильных ответов (correct spared).
- *
- * Требует авторизации.
+ * Создаёт ExamAttempt, генерирует вариант, для русского выбирает случайный
+ * essayTextId. Возвращает phase="tests".
  */
 
 import { NextResponse } from "next/server";
@@ -15,15 +13,13 @@ import { generateVariant } from "@/lib/exam/variant-builder";
 import { checkRateLimit } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
   const userId = await currentUserId();
-  if (!userId) {
-    return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-  }
+  if (!userId) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
 
-  // Rate limit: 5 попыток симулятора в час — иначе будут накручивать
   const rl = await checkRateLimit(req, {
     identifier: `exam-start:${userId}`,
     limit: 5,
@@ -43,12 +39,16 @@ export async function POST(req: Request) {
   if (!subjectKey) return NextResponse.json({ error: "subjectKey обязателен" }, { status: 400 });
 
   try {
-    const { spec, tasks } = await generateVariant(subjectKey);
+    const { spec, tasks, essayTextId } = await generateVariant(subjectKey);
     if (tasks.length === 0) {
       return NextResponse.json({ error: "Не удалось собрать вариант — нет заданий" }, { status: 500 });
     }
+    if (spec.hasEssayPhase && !essayTextId) {
+      return NextResponse.json({
+        error: "Не удалось выбрать исходный текст для сочинения. Обратись к администратору.",
+      }, { status: 500 });
+    }
 
-    // Создаём попытку в БД
     const attempt = await prisma.examAttempt.create({
       data: {
         userId,
@@ -64,10 +64,11 @@ export async function POST(req: Request) {
           correct: t.correct,
         })),
         status: "in_progress",
+        phase: "tests",
+        essayTextId,
       },
     });
 
-    // Клиенту отдаём БЕЗ правильных ответов и без разборов
     const clientTasks = tasks.map(t => ({
       taskNumber: t.taskNumber,
       description: t.description,
@@ -82,9 +83,12 @@ export async function POST(req: Request) {
       displayName: spec.displayName,
       durationMinutes: spec.durationMinutes,
       maxPrimaryScore: spec.maxPrimaryScorePart1,
+      hasEssayPhase: spec.hasEssayPhase,
       startedAt: attempt.startedAt.toISOString(),
       pausedAt: null,
       pausedMillis: 0,
+      phase: "tests",
+      essayTextId,
       tasks: clientTasks,
     });
   } catch (err) {
